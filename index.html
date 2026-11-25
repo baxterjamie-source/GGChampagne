@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#121212">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Champagne Birthday</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,800;1,700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Loading -->
+  <section id="loading" class="screen active">
+    <div class="loader-bubbles"><span></span><span></span><span></span></div>
+    <p id="loading-text">Un instant…</p>
+  </section>
+
+  <!-- Bottle: tap 4 times -->
+  <section id="bottle-screen" class="screen">
+    <div class="bottle-stage">
+      <canvas id="bottle-canvas" aria-label="A bottle of Veuve Clicquot Brut, foil off, cork ready."></canvas>
+    </div>
+  </section>
+
+  <!-- Full-screen canvas for the cork pop, the bubbles and the opening sequence -->
+  <canvas id="stage"></canvas>
+
+  <button id="skip" class="skip" hidden>Passer ›</button>
+  <div id="rotate-hint" class="rotate-hint" hidden>↻ Tournez votre téléphone · turn your phone sideways</div>
+  <button id="sound-hint" class="sound-hint" hidden>🔊 Son activé</button>
+
+  <!-- Menu -->
+  <section id="menu" class="screen">
+    <header class="menu-head">
+      <p class="eyebrow">Steph's</p>
+      <h1>Champagne Birthday</h1>
+      <p class="sub">Juin 2027</p>
+    </header>
+    <nav class="menu-cards">
+      <button class="card card-reveal" data-action="reveal">
+        <span class="card-icon">🍾</span>
+        <span class="card-title">Cette semaine</span>
+        <span class="card-sub" id="next-reveal">This week's reveal</span>
+      </button>
+      <button class="card card-french" data-action="french">
+        <span class="card-icon">🇫🇷</span>
+        <span class="card-title">Leçon de français</span>
+        <span class="card-sub" id="french-sub">This week's French lesson</span>
+      </button>
+      <button class="card card-trip" data-action="trip">
+        <span class="card-icon">🔒</span>
+        <span class="card-title">Le voyage</span>
+        <span class="card-sub">Unlocks in June</span>
+      </button>
+      <button class="card card-replay" data-action="replay">
+        <span class="card-icon">🎬</span>
+        <span class="card-title">Revoir l'intro</span>
+        <span class="card-sub">Replay the opening</span>
+      </button>
+    </nav>
+    <div id="menu-toast" class="menu-toast" hidden></div>
+  </section>
+
+  <!-- French lesson -->
+  <section id="lesson" class="screen lesson" aria-label="Leçon de français">
+    <header class="lesson-head">
+      <button id="lesson-close" class="round" aria-label="Fermer">✕</button>
+      <span id="lesson-title" class="lesson-title"></span>
+      <button id="lesson-music" class="round music" aria-label="Musique" title="Musique · music on/off">♪</button>
+      <nav id="lesson-tabs" class="lesson-tabs">
+        <button data-tab="lesson" class="on">Leçon</button>
+        <button data-tab="sayit">À dire <b id="sayit-count"></b></button>
+      </nav>
+    </header>
+    <div id="lesson-steps" class="lesson-steps"></div>
+    <div class="lesson-body">
+      <div id="lesson-scene" class="lesson-scene"></div>
+      <div class="lesson-side">
+        <div id="lesson-panel" class="lesson-panel"></div>
+        <div id="lesson-foot" class="lesson-foot"></div>
+      </div>
+    </div>
+  </section>
+
+  <script src="js/core.js"></script>
+  <script src="js/scenes.js"></script>
+  <script src="js/intro.js"></script>
+  <script src="js/lesson_data.js"></script>
+  <script src="js/lesson_scenes.js"></script>
+  <script src="js/lessons.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
