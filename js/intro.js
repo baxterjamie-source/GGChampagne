@@ -278,7 +278,7 @@ function drawWoman(ctx, x, y, h, waving, t) {
 const SHOTS = [
   { // 0. Sunshine. Wide, then a 2 s zoom in: the 2CV stopped on the lane, S leaning out of her window,
     // a local woman beside the car. She waves them off in French as they pull slowly away; S sits up and waves.
-    name: 'roadside-chat', dur: 10,
+    name: 'roadside-chat', fy: 0.85, dur: 10,
     enter: (S, L) => { L.w0 = S.scroll; SFX.setRain(0); SFX.setEngine(0.0001, 0.6); SFX.loop('idle', 0.22, 1.5); },
     draw: (ctx, t, dt, S, L) => {
       once(L, 'bird1', t > 1.6, () => SFX.birdPhrase());
@@ -301,7 +301,7 @@ const SHOTS = [
     tick: t => { if (t > 4) SFX.setEngine(U.lerp(0.35, 1, U.seg(t, 4, 9.6)), U.lerp(0.7, 1, U.seg(t, 4, 9.6))); },
   },
   { // 1. Driving through the vineyards at dusk; the rain starts
-    name: 'vines-sun-to-rain', dur: 8,
+    name: 'vines-sun-to-rain', fy: 0.85, dur: 8,
     enter: S => { SFX.setEngine(1, 1); SFX.setRain(0.15); },
     // sunny and smiling → the light goes → rain sets in → she gets worried
     draw: sideShot({
@@ -314,7 +314,7 @@ const SHOTS = [
     tick: (t, S) => SFX.setRain(U.lerp(0, 0.5, U.seg(t / 8, 0.35, 0.8))),
   },
   { // 2. Front-on: the 2CV coming towards us through the rain, both a little worried
-    name: 'front-worried', dur: 3.8,
+    name: 'front-worried', fy: 0.8, dur: 3.8,
     enter: S => { SFX.setRain(0.55); SFX.setEngine(0.8, 0.95); },
     draw: (ctx, t, dt, S, L) => {
       const p = t / 3.8, light = U.lerp(0.6, 0.52, p);
@@ -345,7 +345,7 @@ const SHOTS = [
     },
   },
   { // 3. Storm: lightning, thunder, a swerve
-    name: 'side-storm', dur: 6,
+    name: 'side-storm', fy: 0.85, dur: 6,
     enter: S => { SFX.setRain(0.75); SFX.setEngine(1, 1.05); },
     draw: sideShot({
       dur: 6, speed: 560, mode: 'vines', light: p => U.lerp(0.52, 0.42, p), rain: 0.8,
@@ -373,7 +373,7 @@ const SHOTS = [
     }),
   },
   { // 6. Sliding in the mud, a bit too fast; J and the stick shift
-    name: 'side-slide', dur: 4.2,
+    name: 'side-slide', fy: 0.85, dur: 4.2,
     enter: S => { SFX.setEngine(1, 1.15); },
     draw: sideShot({
       dur: 4.2, speed: 600, mode: 'vines', light: p => U.lerp(0.3, 0.21, p), rain: 0.85, mud: 1.6,
@@ -386,7 +386,7 @@ const SHOTS = [
     }),
   },
   { // 7. The fork: right, and upwards into the trees
-    name: 'fork', dur: 5,
+    name: 'fork', fy: 0.6, dur: 5,
     enter: S => { SFX.setEngine(0.8, 0.9); },
     draw: (ctx, t, dt, S, L) => {
       drawFork(ctx, t, U.lerp(0.2, 0.12, t / 5), U.ease(U.clamp(t / 5)));
@@ -394,7 +394,7 @@ const SHOTS = [
     },
   },
   { // 8. Uphill through the forest; it's nearly dark; they slow right down
-    name: 'side-forest', dur: 5,
+    name: 'side-forest', fy: 0.85, dur: 5,
     enter: S => { SFX.setRain(0.9); },
     draw: sideShot({ dur: 5, speed: t => U.lerp(420, 150, U.clamp(t / 5)), mode: 'forest', light: p => U.lerp(0.13, 0.1, p), rain: 0.95, tiltWorld: -0.06 }),
     tick: (t) => SFX.setEngine(1, U.lerp(1.1, 0.7, t / 5)),
@@ -434,7 +434,7 @@ const SHOTS = [
     }),
   },
   { // 12. Side: the car taps a chair, which hops up and lands back on its feet
-    name: 'side-tap', dur: 3.4,
+    name: 'side-tap', fy: 0.85, dur: 3.4,
     enter: S => { L_stopAt = S.scroll + 260; SFX.setEngine(0.3, 0.55); SFX.setRain(0.6); },
     draw: (ctx, t, dt, S, L) => {
       const speed = Math.max(0, 320 * (1 - t / 1.05));
@@ -479,7 +479,7 @@ const SHOTS = [
     draw: frontCloseShot({ dur: 3, img: 'frontSmile', bg: 'forest', light: 0.5, rain: 0.25, zoom: p => U.lerp(2.0, 2.1, p), bob: 0.4 }),
   },
   { // 15. Side: forest to the left, a vast open space to the right; it brightens; birdsong
-    name: 'side-open', dur: 4.8,
+    name: 'side-open', fy: 0.85, dur: 4.8,
     enter: S => { SFX.setRain(0.05); setTimeout(() => SFX.birds(true), 1500); },
     draw: (ctx, t, dt, S, L) => {
       const p = t / 4.8, light = U.lerp(0.4, 1.7, U.ease(p));
@@ -515,7 +515,7 @@ const SHOTS = [
     }),
   },
   { // 18. Dolly forward through the windscreen; the title in the sky; the "!" bottle pops
-    name: 'dolly-title', dur: 9,
+    name: 'dolly-title', fy: t => U.lerp(0.5, 0.2, U.ease(U.clamp(t / 2.6))), dur: 9,
     enter: (S, L) => { L.title = layoutTitle(S.ctx); },
     draw: (ctx, t, dt, S, L) => {
       const T = L.title;
@@ -559,28 +559,28 @@ const SHOTS = [
     },
   },
   { // 19. The couple, cheers! Then the menu appears.
-    name: 'toast', dur: 5.5, hold: true,
+    name: 'toast', fy: 0.85, dur: 5.5, hold: true,
     enter: S => { setTimeout(() => SFX.clink(), 1900); },
     draw: (ctx, t, dt, S, L) => {
       drawCover(ctx, A.pano, 1.18, 0.6, 0.75);
       drawRainbow(ctx, 0.9, 1000, 820, 700);
       drawRisingBubbles(ctx, t + 9, 34, 0.9);
       // the bistro table beside them
-      drawTable(ctx, 1170, 890, 1.0);
-      drawChair(ctx, 1410, 896, 1.05, -1);
+      drawTable(ctx, 1170, 872, 0.95);
+      drawChair(ctx, 1400, 878, 1.0, -1);
       // S & J, arm in arm; a slight nod and settle
-      const img = A.cheers, h = 860, w = img.width * h / img.height;
+      const img = A.cheers, h = 760, w = img.width * h / img.height, Y = 860;   // sized to fit a phone's trimmed frame
       const intro = U.easeOut(U.clamp(t / 0.9));
       const nod = Math.sin(t * 2.4) * 0.012 * U.clamp(t - 0.8) * Math.exp(-Math.max(0, t - 3) * 0.4);
       ctx.save();
-      ctx.translate(560, 905 + (1 - intro) * 40); ctx.rotate(nod); ctx.scale(0.96 + intro * 0.04, 0.96 + intro * 0.04);
+      ctx.translate(560, Y + (1 - intro) * 40); ctx.rotate(nod); ctx.scale(0.96 + intro * 0.04, 0.96 + intro * 0.04);
       ctx.globalAlpha = U.clamp(t / 0.5);
       ctx.drawImage(img, -w / 2, -h + 30, w, h);
       ctx.restore();
       // clink sparkle where the flutes meet
       const ct = t - 1.9;
       if (ct > 0 && ct < 1.2) {
-        const gx = 560 + (430 - 432) * h / img.height, gy = 905 - h + 30 + 400 * h / img.height;
+        const gx = 560 + (430 - 432) * h / img.height, gy = Y - h + 30 + 400 * h / img.height;
         ctx.save(); ctx.globalCompositeOperation = 'lighter';
         for (let i = 0; i < 10; i++) {
           const a = i / 10 * Math.PI * 2, d = 18 + ct * 90;

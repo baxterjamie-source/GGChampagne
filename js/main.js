@@ -180,10 +180,16 @@ function startIntro(from = 0) {
   resize();
   mode = {
     frame(dt) {
-      const cw = stage.width, ch = stage.height, sc = Math.min(cw / W, ch / H);
+      // Fill the screen: scale up past "fit" by up to 25%, which covers a phone held sideways
+      // (about 19.5:9). The spare height is trimmed where each shot can lose it: shot.fy is
+      // 0 = keep the top, 0.5 = trim evenly, 1 = keep the bottom (a number, or fn(t)).
+      const cw = stage.width, ch = stage.height;
+      const sc = Math.min(Math.max(cw / W, ch / H), Math.min(cw / W, ch / H) * 1.25);
+      const sh = SHOTS[Intro.idx] || {}, spare = ch - H * sc;
+      const fy = spare >= 0 ? 0.5 : (typeof sh.fy === 'function' ? sh.fy(Intro.t) : (sh.fy ?? 0.5));
       sctx.setTransform(1, 0, 0, 1, 0, 0);
       sctx.fillStyle = '#000'; sctx.fillRect(0, 0, cw, ch);
-      sctx.setTransform(sc, 0, 0, sc, (cw - W * sc) / 2, (ch - H * sc) / 2);
+      sctx.setTransform(sc, 0, 0, sc, (cw - W * sc) / 2, spare * fy);
       sctx.save(); sctx.beginPath(); sctx.rect(0, 0, W, H); sctx.clip();
       Intro.frame(sctx, dt);
       sctx.restore();
