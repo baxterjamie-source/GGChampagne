@@ -218,10 +218,23 @@ function drawPaintedVineyard(ctx, o) {
   }
 }
 
+/* Painted side-on forest (shots 7 and 11): misty canopy far off, big trunks near the lane, the same muddy road. */
+function drawPaintedForest(ctx, o) {
+  const { scroll, light } = o;
+  drawCover(ctx, A.scSky, 1.1, 0.5, 0.35);
+  drawStormClouds(ctx, Math.min(light, 0.35), scroll * 0.03);
+  drawTiled(ctx, A.forestFar, scroll * 0.15, 150, 1.0);
+  mist(ctx, 0.4, 260);
+  drawTiled(ctx, A.forestNear, scroll * 0.6, 805 - 640 * 1.2, 1.2);
+  mist(ctx, 0.12, 400);
+  drawTiled(ctx, A.scRoad, scroll, 790, 0.35);
+}
+
 /* Full side-on scene. mode: 'vines' | 'forest' */
 function drawSideWorld(ctx, o) {
   const { scroll, light, mode = 'vines', lit = 0 } = o;
   if (mode === 'vines' && A.scVines) return drawPaintedVineyard(ctx, o);
+  if (mode === 'forest' && A.forestFar) return drawPaintedForest(ctx, o);
   drawSky(ctx, light, 640);
   if (mode === 'vines') {
     drawFarHills(ctx, scroll);
@@ -448,152 +461,58 @@ class Glass {
   }
 }
 
-/* ---------- Inside the car, looking out ---------- */
-const GLASS_IN = [[150, 58], [1450, 58], [1592, 560], [8, 560]];
-function insideGlassPath(ctx) { ctx.beginPath(); GLASS_IN.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); }
+/* ---------- Inside the car, looking out (painted interiors, green windows keyed out) ----------
+   The interiors are 16:9 and fill the 1600x900 frame. The windscreen sits in the band
+   x 340..1260, y 232..464; between the two heads it's clear from x 585 to 1025. */
+const WINDSCREEN = { cx: 800, cy: 348, top: 232, bottom: 464 };
 function makeInsideGlass(hazeCol) {
-  return new Glass({ path: insideGlassPath, pivots: [{ x: 520, y: 552 }, { x: 1080, y: 552 }], len: 470, hazeCol });
+  // haze and mud cover the whole frame; the interior painting on top leaves them visible only in the windows
+  return new Glass({ path: c => { c.beginPath(); c.rect(0, 0, W, H); }, pivots: [{ x: 600, y: 486 }, { x: 1010, y: 486 }], len: 300, hazeCol });
 }
-function drawCabin(ctx, light = 1) {
+function drawInterior(ctx, img, light = 1, o = {}) {
   ctx.save();
-  // pillars + roof (everything outside the glass)
-  ctx.beginPath(); ctx.rect(0, 0, W, 600);
-  ctx.moveTo(GLASS_IN[0][0], GLASS_IN[0][1]); GLASS_IN.slice(1).reverse().forEach(([x, y]) => ctx.lineTo(x, y));
-  ctx.closePath();
-  const g = ctx.createLinearGradient(0, 0, 0, 600);
-  g.addColorStop(0, '#9a978e'); g.addColorStop(0.12, '#6e6c66'); g.addColorStop(1, '#4a4944');
-  ctx.fillStyle = g; ctx.fill('evenodd');
-  // rubber seal
-  insideGlassPath(ctx); ctx.lineWidth = 10; ctx.strokeStyle = '#1a1a1a'; ctx.stroke();
-  // mirror
-  ctx.fillStyle = '#2a2a2a'; ctx.fillRect(796, 40, 8, 40);
-  ctx.beginPath(); ctx.roundRect(700, 76, 200, 46, 10); ctx.fill();
-  ctx.fillStyle = 'rgba(150,160,175,.55)'; ctx.beginPath(); ctx.roundRect(708, 82, 184, 34, 7); ctx.fill();
-  // dashboard photo
-  ctx.drawImage(A.dash, 0, 440);
+  if (o.alpha != null) ctx.globalAlpha = o.alpha;
+  if (o.scale) { ctx.translate(WINDSCREEN.cx, WINDSCREEN.cy); ctx.scale(o.scale, o.scale); ctx.translate(-WINDSCREEN.cx, -WINDSCREEN.cy); }
+  const b = U.clamp(1 - (1 - Math.min(light, 1)) * 0.6, 0.35, 1);
+  if (b < 0.99) ctx.filter = `brightness(${b.toFixed(3)})`;
+  ctx.drawImage(img, 0, 0, W, H);
   ctx.restore();
-  darken(ctx, U.clamp((1 - light) * 0.7));
 }
 
-/* ---------- Forward view (out of the windscreen) ---------- */
-function drawForward(ctx, o) {
-  // o: { z, light, mode:'vines'|'forest'|'open', hy, vx, sway, lights, lit }
-  const hy = o.hy ?? 330, vx = o.vx ?? 800, z = o.z;
-  drawSky(ctx, o.light, hy);
+/* ---------- Forward view (a painted picture out of the windscreen) ----------
+   The picture is drawn to cover the frame with its focus point (fx, fy) at the windscreen centre.
+   o: { zoom, fx, fy, light, sway, lights } */
+function drawForwardImg(ctx, img, o) {
+  const fx = o.fx ?? 0.5, fy = o.fy ?? 0.42, z = o.zoom ?? 1.15;
+  const sc = Math.max(W / img.width, H / img.height) * z, w = img.width * sc, h = img.height * sc;
   ctx.save();
   if (o.sway) { ctx.translate(800, 600); ctx.rotate(o.sway); ctx.translate(-800, -600); }
-  // distant hills
-  ctx.fillStyle = o.mode === 'forest' ? '#2f4434' : '#7b8f98';
-  ctx.beginPath(); ctx.moveTo(-200, hy + 10);
-  for (let x = -200; x <= W + 200; x += 20) ctx.lineTo(x, hy - 30 - 40 * U.noise1(x / 260 + 2));
-  ctx.lineTo(W + 200, hy + 10); ctx.closePath(); ctx.fill();
-  // fields
-  ctx.fillStyle = o.mode === 'forest' ? '#2e4a2c' : '#6d9645';
-  ctx.fillRect(-200, hy, W + 400, H - hy + 300);
-  if (o.mode !== 'forest') {
-    // vine rows converging on the vanishing point
-    ctx.strokeStyle = '#3e6a2a'; ctx.lineCap = 'butt';
-    for (let i = -26; i <= 26; i++) {
-      if (Math.abs(i) < 3) continue;
-      ctx.lineWidth = 3 + Math.abs(i) * 0.7;
-      ctx.beginPath(); ctx.moveTo(vx + i * 4, hy + 2); ctx.lineTo(vx + i * 150, H + 300); ctx.stroke();
-    }
-    // a village and church on the horizon
-    drawChurch(ctx, vx + 260, hy + 4, 0.35, o.lit || 0);
-    drawHouse(ctx, vx - 300, hy + 4, 0.3, 4, o.lit || 0); drawHouse(ctx, vx - 250, hy + 6, 0.28, 9, o.lit || 0);
-  }
-  // road
-  ctx.fillStyle = '#6a4a30';
-  ctx.beginPath(); ctx.moveTo(vx - 10, hy); ctx.lineTo(vx + 10, hy); ctx.lineTo(1300, H + 60); ctx.lineTo(300, H + 60); ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = 'rgba(40,26,16,.55)'; ctx.lineWidth = 6;
-  ctx.beginPath(); ctx.moveTo(vx - 3, hy); ctx.lineTo(520, H + 60); ctx.moveTo(vx + 3, hy); ctx.lineTo(1080, H + 60); ctx.stroke();
-  // depth-cycling things: puddles, posts, trees
-  const depth = k => 1 / k;             // k = distance
-  for (let i = 0; i < 14; i++) {
-    const k = ((i * 3 - z) % 42 + 42) % 42 + 1.2, d = depth(k), y = hy + 520 * d;
-    if (y > H + 80) continue;
-    const sz = d * 1;
-    if (U.hash(i) > .5) { // puddle
-      ctx.fillStyle = 'rgba(160,170,185,.45)';
-      ctx.beginPath(); ctx.ellipse(vx + (U.hash(i * 2) - .5) * 900 * d, y, 260 * sz, 30 * sz, 0, 0, Math.PI * 2); ctx.fill();
-    }
-    for (const side of [-1, 1]) {
-      const x = vx + side * (1100 + U.hash(i + side) * 500) * d;
-      if (o.mode === 'forest') {
-        ctx.fillStyle = '#2c2018'; ctx.fillRect(x - 40 * d, y - 2400 * d, 80 * d, 2400 * d);
-        ctx.fillStyle = U.hash(i * side) > .5 ? '#21402a' : '#1a3322';
-        ctx.beginPath(); ctx.arc(x, y - 2300 * d, 900 * d, 0, Math.PI * 2); ctx.fill();
-      } else if (U.hash(i * 7 + side) > 0.82) {
-        drawTree(ctx, x, y, 8 * d, i, [70, 112, 52]);
-      } else {
-        ctx.fillStyle = '#3a2a1c'; ctx.fillRect(x - 6 * d, y - 260 * d, 12 * d, 260 * d);
-      }
-    }
-  }
-  // dense forest walls
-  if (o.mode === 'forest') {
-    for (const side of [-1, 1]) for (let i = 0; i < 10; i++) {
-      const x = vx + side * (240 + i * 90), r = 140 + i * 40;
-      ctx.fillStyle = i % 2 ? '#1d3524' : '#173020';
-      ctx.beginPath(); ctx.arc(x, hy - 60 - i * 26, r, 0, Math.PI * 2); ctx.fill();
-    }
-  }
+  ctx.drawImage(img, WINDSCREEN.cx - w * fx, WINDSCREEN.cy - h * fy, w, h);
   ctx.restore();
   darken(ctx, U.clamp((1 - o.light) * 0.75));
   if (o.lights) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    const g = ctx.createRadialGradient(800, 640, 30, 800, 520, 620);
-    g.addColorStop(0, `rgba(255,232,170,${0.35 * o.lights})`); g.addColorStop(1, 'rgba(255,232,170,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(500, 900); ctx.lineTo(720, hy + 20); ctx.lineTo(880, hy + 20); ctx.lineTo(1100, 900); ctx.closePath(); ctx.fill();
+    const g = ctx.createRadialGradient(800, 470, 20, 800, 400, 420);
+    g.addColorStop(0, `rgba(255,232,170,${0.3 * o.lights})`); g.addColorStop(1, 'rgba(255,232,170,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(480, 560); ctx.lineTo(740, 340); ctx.lineTo(860, 340); ctx.lineTo(1120, 560); ctx.closePath(); ctx.fill();
     ctx.restore();
   }
 }
 
-/* ---------- Bistro set ---------- */
+/* ---------- Bistro set (painted props, magenta keyed and trimmed) ----------
+   Anchored bottom-centre on the ground. In units of s: a chair is 310 tall, the table with its bottle 500. */
+const CHAIR_H = 310, TABLE_H = 500;
 function drawChair(ctx, x, y, s, flip = 1, tip = 0) {
+  const img = A.chair, h = CHAIR_H, w = img.width * h / img.height;
   ctx.save(); ctx.translate(x, y); ctx.scale(s * flip, s);
-  if (tip) { ctx.translate(-60, 0); ctx.rotate(-tip); ctx.translate(60, 0); }
-  ctx.lineCap = 'round';
-  // iron legs
-  ctx.strokeStyle = '#151515'; ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(-60, 0); ctx.lineTo(40, -120);  ctx.moveTo(55, 0); ctx.lineTo(-45, -120);
-  ctx.moveTo(-45, -120); ctx.lineTo(-48, -290); ctx.moveTo(40, -120); ctx.lineTo(36, -290);
-  ctx.stroke();
-  // seat slats
-  for (let i = 0; i < 4; i++) {
-    ctx.fillStyle = i % 2 ? '#8a5530' : '#9c6438';
-    ctx.beginPath(); ctx.roundRect(-70 + i * 3, -140 + i * 7, 140 - i * 6, 9, 3); ctx.fill();
-  }
-  // back slats
-  for (let i = 0; i < 2; i++) {
-    ctx.fillStyle = i ? '#8a5530' : '#a06a3c';
-    ctx.beginPath(); ctx.roundRect(-62, -290 + i * 42, 112, 26, 5); ctx.fill();
-    ctx.strokeStyle = 'rgba(40,20,8,.45)'; ctx.lineWidth = 2; ctx.stroke();
-  }
+  if (tip) { ctx.translate(-w * 0.4, 0); ctx.rotate(-tip); ctx.translate(w * 0.4, 0); }   // tips up on its back foot
+  ctx.drawImage(img, -w / 2, -h, w, h);
   ctx.restore();
 }
-function drawFlute(ctx, x, y, s, fill = 1, tilt = 0) {
-  ctx.save(); ctx.translate(x, y); ctx.rotate(tilt); ctx.scale(s, s);
-  // foot + stem
-  ctx.fillStyle = 'rgba(230,240,245,.75)';
-  ctx.beginPath(); ctx.ellipse(0, 0, 22, 6, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillRect(-2.5, -70, 5, 70);
-  // bowl
-  ctx.beginPath(); ctx.moveTo(-15, -175); ctx.quadraticCurveTo(-17, -95, 0, -70); ctx.quadraticCurveTo(17, -95, 15, -175); ctx.closePath();
-  ctx.fillStyle = 'rgba(225,238,245,.28)'; ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2; ctx.stroke();
-  if (fill > 0) {
-    ctx.save(); ctx.clip();
-    const top = -72 - 95 * fill;
-    const g = ctx.createLinearGradient(0, top, 0, -70);
-    g.addColorStop(0, '#F7DC86'); g.addColorStop(1, '#E2A92A');
-    ctx.fillStyle = g; ctx.fillRect(-20, top, 40, 110);
-    ctx.fillStyle = 'rgba(255,255,255,.7)';
-    for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(-6 + U.hash(i) * 12, top + 10 + U.hash(i * 3) * 80 * fill, 1.6, 0, Math.PI * 2); ctx.fill(); }
-    ctx.restore();
-  }
-  ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillRect(-10, -165, 3, 70);
+function drawTable(ctx, x, y, s) {
+  const img = A.table, h = TABLE_H, w = img.width * h / img.height;
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  ctx.drawImage(img, -w / 2, -h, w, h);
   ctx.restore();
 }
 function drawBottle(ctx, x, y, h, rot = 0) {   // bottom-centre anchored
@@ -639,22 +558,11 @@ function drawCork(ctx, x, y, s, rot = 0) {
   shape(); ctx.strokeStyle = 'rgba(70,46,26,.7)'; ctx.lineWidth = 1.4; ctx.stroke();
   ctx.restore();
 }
-function drawTable(ctx, x, y, s, o = {}) {
-  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-  ctx.strokeStyle = '#151515'; ctx.lineWidth = 7; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-90, 0); ctx.lineTo(80, -250); ctx.moveTo(90, 0); ctx.lineTo(-80, -250); ctx.stroke();
-  ctx.fillStyle = '#7a4a28'; ctx.beginPath(); ctx.ellipse(0, -258, 150, 40, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#9c6438'; ctx.beginPath(); ctx.ellipse(0, -266, 150, 40, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = 'rgba(60,30,10,.5)'; ctx.lineWidth = 2;
-  for (let i = -3; i <= 3; i++) { ctx.beginPath(); ctx.moveTo(i * 40, -300); ctx.lineTo(i * 40, -228); ctx.stroke(); }
-  ctx.restore();
-  if (o.bottle) drawBottle(ctx, x - 10 * s, y - 262 * s, 230 * s);
-  if (o.flutes) { drawFlute(ctx, x - 80 * s, y - 252 * s, 0.85 * s, o.fill ?? 0.8); drawFlute(ctx, x + 70 * s, y - 256 * s, 0.85 * s, o.fill ?? 0.8); }
-}
+/* Two chairs either side of the table. o: { table:false, tipL, tipR } */
 function drawBistro(ctx, x, y, s, o = {}) {
-  drawChair(ctx, x - 190 * s, y + 8 * s, s, 1, o.tipL || 0);
-  drawChair(ctx, x + 190 * s, y + 8 * s, s, -1, o.tipR || 0);
-  if (o.table !== false) drawTable(ctx, x, y, s, o);
+  drawChair(ctx, x - 170 * s, y + 6 * s, s, 1, o.tipL || 0);
+  drawChair(ctx, x + 170 * s, y + 6 * s, s, -1, o.tipR || 0);
+  if (o.table !== false) drawTable(ctx, x, y, s);
 }
 
 function drawRainbow(ctx, alpha, cx = 980, cy = 760, r = 620) {
@@ -669,10 +577,4 @@ function drawCover(ctx, img, zoom = 1, fx = 0.5, fy = 0.5, ox = 0, oy = 0) {
   const sc = Math.max(W / img.width, H / img.height) * zoom;
   const w = img.width * sc, h = img.height * sc;
   ctx.drawImage(img, W * fx - w * fx + ox, H * fy - h * fy + oy, w, h);
-}
-
-function drawPortrait(ctx, img, cx, cy, size, rot = 0, flip = 1) {
-  ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot); ctx.scale(flip, 1);
-  ctx.drawImage(img, -size / 2, -size / 2, size, size);
-  ctx.restore();
 }

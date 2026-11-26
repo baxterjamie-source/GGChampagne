@@ -44,17 +44,28 @@ const ASSET_FILES = {
   frontWorried: 'SandJ/cit_worried_front.jfif',
   scVinesFwd: 'scenery/shot0/vineyard_hills.jfif',   // looking down the rows: used behind the front-on car
   back: 'SandJ/Cit-back.jpg',
-  dash: 'archive_Citroen_deux-cheveaux/2CV_CL-16.108.015-scaled_DASH.jpg',
-  land: 'champagne-landscape- muddy_track.jpg',
-  jWorried: 'SandJ/J-worried.jpg',
-  sWorried: 'SandJ/S-worried-anxious.jpg',
-  jShock: 'SandJ/J-shocked.jpg',
-  sShock: 'SandJ/S-scared-shocked.jpg',
-  jLaugh: 'SandJ/J-laughing.jpg',
-  sLaugh: 'SandJ/S-laughing.jpg',
-  jAwe: 'SandJ/J-amazed-in-awe.jpg',
-  sAwe: 'SandJ/s-more-amazed-wow.jpg',
   cheers: 'SandJ/S-J_cheers.jfif',
+  // the car from the front, different moods (green screen, same framing as cit_worried_front)
+  frontShock: 'SandJ/cit_front_both_shocked.jpg',
+  frontSmile: 'SandJ/Cit_front_both_amazed.jpg',
+  frontAwe: 'SandJ/Cit_front_both_in_wonder.jpg',
+  // inside the car from the back seat (green windows)
+  inSunny: 'scenery/inside/interior_sunny_not_anxious.jfif',
+  inAnxious: 'scenery/inside/interior_anxious.jfif',
+  inShocked: 'scenery/inside/interior_shocked.jfif',
+  // what they see through the windscreen
+  fwdVines: 'scenery/forward/fwd_vineyard_lane.jfif',
+  fwdFork: 'scenery/forward/fwd_fork.jfif',
+  fwdForest: 'scenery/forward/fwd_forest_lane.jfif',
+  fwdClearing: 'scenery/forward/fwd_clearing.jfif',
+  pano: 'scenery/final/panorama_less_cloudy.jpg',
+  clearing: 'scenery/final/clearing_side.jpg',
+  // forest, side-on (magenta sky/gaps)
+  forestFar: 'scenery/forest/forest_far.jpg',
+  forestNear: 'scenery/forest/forest_near.jpg',
+  // bistro set (magenta background)
+  chair: 'props/bistro_chair.jpg',
+  table: 'props/bistro_table.jpg',
   // painted scenery for the side-on vineyard drive (shot 0 and friends)
   scSky: 'scenery/shot0/sky.jfif',
   scFar: 'scenery/shot0/far_hills.jfif',
@@ -137,6 +148,20 @@ function keyMagenta(img) {
     if (ex > 15) { const s = (ex - 15) * 0.8; p[i] = Math.max(g, r - s); p[i + 2] = Math.max(g, b - s); } // despill
   }
   x.putImageData(d, 0, 0);
+  return c;
+}
+
+/* Crop a keyed canvas to the box around its visible pixels. */
+function trimAlpha(src, min = 24) {
+  const w = src.width, h = src.height, p = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data;
+  let x0 = w, y0 = h, x1 = 0, y1 = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (p[(y * w + x) * 4 + 3] < min) continue;
+    if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+  }
+  if (x1 < x0) return src;
+  const c = makeCanvas(x1 - x0 + 1, y1 - y0 + 1);
+  c.getContext('2d').drawImage(src, -x0, -y0);
   return c;
 }
 
@@ -252,20 +277,13 @@ function carParts(side) {
 
 function finishAssets() {
   A.carBack = keyGreen(RAW.back);
-
-  // Dashboard photo: remove the white windscreen + side window, then cut away the old wipers above the dash line.
-  const dash = keyWhite(RAW.dash, [[1280, 20], [2500, 20], [700, 20], [60, 300], [40, 120], [200, 40]], 30, 0.625);
-  const dx = dash.getContext('2d');
-  dx.globalCompositeOperation = 'destination-out';
-  dx.beginPath();
-  dx.moveTo(250, 0); dx.lineTo(1600, 0); dx.lineTo(1600, 112); dx.lineTo(330, 112); dx.lineTo(250, 0);
-  dx.fill();
-  dx.globalCompositeOperation = 'source-over';
-  A.dash = dash;
-
-  for (const k of ['jWorried', 'sWorried', 'jShock', 'sShock', 'jLaugh', 'sLaugh', 'jAwe', 'sAwe']) A[k] = keyGreen(RAW[k]);
   A.cheers = keyGreen(RAW.cheers);   // 864x1152, glasses touch at ~(430,400)
-  A.land = RAW.land;
+  for (const k of ['frontShock', 'frontSmile', 'frontAwe', 'inSunny', 'inAnxious', 'inShocked']) A[k] = keyGreen(RAW[k]);
+  for (const k of ['fwdVines', 'fwdFork', 'fwdForest', 'fwdClearing', 'pano', 'clearing']) A[k] = RAW[k];
+  A.forestFar = makeTileable(keyMagenta(RAW.forestFar));
+  A.forestNear = makeTileable(keyMagenta(RAW.forestNear));
+  A.chair = trimAlpha(keyMagenta(RAW.chair));
+  A.table = trimAlpha(keyMagenta(RAW.table));
 
   // painted scenery layers
   A.scSky = RAW.scSky;

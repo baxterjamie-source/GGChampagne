@@ -3,75 +3,15 @@
 
 function once(L, key, cond, fn) { if (cond && !L.fired[key]) { L.fired[key] = 1; fn(); } }
 
-/* ---------- Faces through the windscreen (front view into the car) ---------- */
-const FACE_GLASS = { x: 250, y: 150, w: 1100, h: 620 };
-function faceGlassPath(ctx, keep) { if (!keep) ctx.beginPath(); ctx.roundRect(FACE_GLASS.x, FACE_GLASS.y, FACE_GLASS.w, FACE_GLASS.h, 46); }
-function makeFaceGlass() {
-  return new Glass({ path: faceGlassPath, pivots: [{ x: 520, y: 790 }, { x: 1060, y: 790 }], len: 440, hazeCol: 'rgba(84,94,110,1)' });
-}
-function drawFacesShot(ctx, S, t, left, right, o) {
-  // o: { light, shake, zoom, bob, lightning }
-  const sh = o.shake || 0, z = o.zoom || 1;
-  ctx.save();
-  ctx.translate(800 + (Math.random() - .5) * sh, 450 + (Math.random() - .5) * sh);
-  ctx.scale(z, z); ctx.translate(-800, -450);
-  // car interior behind them, with the rear window glowing faintly
-  const [top, hor] = skyCols(o.light);
-  ctx.fillStyle = '#1b1e24'; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = U.rgb(U.mix(hor, top, 0.4), 0.8); ctx.beginPath(); ctx.roundRect(470, 230, 660, 230, 30); ctx.fill();
-  ctx.fillStyle = '#34405a'; ctx.fillRect(300, 470, 1000, 400);   // seat backs
-  const bob = o.bob ?? 4;
-  drawPortrait(ctx, left, 560, 545 + Math.sin(t * 9) * bob, 560);
-  drawPortrait(ctx, right, 1050, 535 + Math.sin(t * 9 + 1) * bob, 580);
-  darken(ctx, U.clamp((1 - o.light) * 0.45));
-  S.faceGlass.draw(ctx, o.hazeMax ?? 0.55, false);
-  // car body around the windscreen
-  ctx.beginPath(); ctx.rect(-200, -200, W + 400, H + 400); faceGlassPath(ctx, true);
-  const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#2f3a4a'); g.addColorStop(0.16, '#2f3a4a'); g.addColorStop(0.17, '#7d9cbf'); g.addColorStop(1, '#5a7898');
-  ctx.fillStyle = g; ctx.fill('evenodd');
-  faceGlassPath(ctx); ctx.lineWidth = 12; ctx.strokeStyle = '#1a1d22'; ctx.stroke();
-  // bonnet ridges
-  ctx.strokeStyle = 'rgba(40,60,85,.5)'; ctx.lineWidth = 4;
-  for (let i = -3; i <= 3; i++) { ctx.beginPath(); ctx.moveTo(800 + i * 70, 800); ctx.lineTo(800 + i * 120, H + 20); ctx.stroke(); }
-  S.faceGlass.drawWipers(ctx);   // wipers on top of the body
-  darken(ctx, U.clamp((1 - o.light) * 0.35));
-  ctx.restore();
-}
-
-/* ---------- The fork in the road ---------- */
+/* ---------- The fork in the road (painted), the car from behind heading up the right branch ---------- */
 function drawFork(ctx, t, light, carP) {
-  const hy = 360;
-  drawSky(ctx, light, hy);
-  ctx.fillStyle = '#6f8492'; ctx.beginPath(); ctx.moveTo(0, hy + 5);
-  for (let x = 0; x <= W; x += 20) ctx.lineTo(x, hy - 30 - 30 * U.noise1(x / 200 + 4)); ctx.lineTo(W, hy + 5); ctx.fill();
-  ctx.fillStyle = '#6a9142'; ctx.fillRect(0, hy, W, H - hy);
-  ctx.strokeStyle = '#3e6a2a';
-  for (let i = -20; i <= 6; i++) { ctx.lineWidth = 3 + Math.abs(i) * .6; ctx.beginPath(); ctx.moveTo(560 + i * 5, hy); ctx.lineTo(560 + i * 140, H + 200); ctx.stroke(); }
-  // forested hill on the right
-  for (let i = 0; i < 16; i++) {
-    const x = 880 + i * 52, y = hy + 70 - i * 14 - U.hash(i) * 30, r = 80 + U.hash(i * 3) * 60 + i * 4;
-    ctx.fillStyle = i % 2 ? '#22412a' : '#1b3523';
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-  }
-  ctx.fillStyle = '#1b3523'; ctx.fillRect(880, hy + 40, W - 880, H);
-  // roads: trunk, left branch to the vines, right branch climbing into the trees
-  ctx.fillStyle = '#6a4a30';
-  ctx.beginPath(); ctx.moveTo(250, H); ctx.lineTo(790, 600); ctx.lineTo(560, hy + 4); ctx.lineTo(575, hy + 4); ctx.lineTo(860, 590); ctx.lineTo(1340, H); ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.moveTo(800, 610); ctx.quadraticCurveTo(930, 520, 1030, 395); ctx.lineTo(1052, 398); ctx.quadraticCurveTo(990, 530, 900, 620); ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = 'rgba(40,26,16,.5)'; ctx.lineWidth = 5;
-  ctx.beginPath(); ctx.moveTo(520, H); ctx.lineTo(820, 610); ctx.quadraticCurveTo(940, 520, 1036, 398); ctx.moveTo(1080, H); ctx.lineTo(860, 610); ctx.stroke();
-  // fork signpost
-  ctx.fillStyle = '#3a2a1c'; ctx.fillRect(744, 470, 7, 110);
-  ctx.fillStyle = '#e8dcc0'; ctx.beginPath(); ctx.moveTo(700, 478); ctx.lineTo(752, 478); ctx.lineTo(752, 500); ctx.lineTo(700, 500); ctx.lineTo(690, 489); ctx.fill();
-  ctx.beginPath(); ctx.moveTo(752, 506); ctx.lineTo(806, 506); ctx.lineTo(816, 517); ctx.lineTo(806, 528); ctx.lineTo(752, 528); ctx.fill();
-  // the car, from behind, heading up the right fork
+  drawCover(ctx, A.fwdFork, 1.04 + t * 0.008, 0.62, 0.55);
   const p = carP;
-  const pts = [[800, 960, 0.6], [835, 640, 0.26], [935, 520, 0.16], [1040, 400, 0.06]];
+  const pts = [[790, 990, 0.62], [1010, 700, 0.3], [1150, 545, 0.17], [1265, 400, 0.08]];
   const seg = Math.min(2, Math.floor(p * 3)), k = p * 3 - seg;
   const a = pts[seg], b = pts[seg + 1];
   const cx = U.lerp(a[0], b[0], k), cy = U.lerp(a[1], b[1], k), s = U.lerp(a[2], b[2], k);
-  ctx.save(); ctx.translate(cx, cy + Math.sin(t * 18) * 3 * s); ctx.rotate(0.12 * U.clamp(p * 3 - 1) + Math.sin(t * 7) * 0.03); ctx.scale(s, s);
+  ctx.save(); ctx.translate(cx, cy + Math.sin(t * 18) * 3 * s); ctx.rotate(0.1 * U.clamp(p * 3 - 1) + Math.sin(t * 7) * 0.03); ctx.scale(s, s);
   ctx.drawImage(A.carBack, -576, -805);
   ctx.globalCompositeOperation = 'lighter';
   for (const lx of [-210, 214]) {
@@ -80,9 +20,8 @@ function drawFork(ctx, t, light, carP) {
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(lx, -130, 90, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
-  darken(ctx, U.clamp((1 - light) * 0.75));
+  darken(ctx, U.clamp((1 - light) * 0.62));
 }
-
 /* ---------- Title text ---------- */
 const TITLE_LINES = [
   { text: 'Steph,', size: 120, y: 190 },
@@ -148,7 +87,15 @@ function drawRisingBubbles(ctx, t, n = 40, alpha = 1) {
 }
 
 /* ---------- Shot list ---------- */
-const LANDSCAPE_FILTER = 'saturate(1.25) contrast(1.06) brightness(1.04)';
+const LANDSCAPE_FILTER = 'saturate(1.12) contrast(1.04) brightness(1.03)';
+
+/* The final panorama. k = 0: framed for the windscreen (as the other forward views); k = 1: centred on the whole frame. */
+function drawPano(ctx, zoom = 1, k = 0) {
+  const img = A.pano, sc = Math.max(W / img.width, H / img.height) * zoom, w = img.width * sc, h = img.height * sc, fy = 0.42;
+  const x = U.lerp(WINDSCREEN.cx - w * 0.5, (W - w) * 0.5, k);
+  const y = Math.min(0, Math.max(H - h, U.lerp(WINDSCREEN.cy - h * fy, (H - h) * fy, k)));
+  ctx.save(); ctx.filter = LANDSCAPE_FILTER; ctx.drawImage(img, x, y, w, h); ctx.restore();
+}
 
 function sideShot(o) {
   // shared logic for the side-on driving shots
@@ -243,6 +190,9 @@ function lensSplat(S, n) {
   SFX.squelch();
 }
 
+/* Inside the car from the back seat: the view (a painted forward picture, or o.outside), then the rain,
+   mud and wipers on the glass, then the painted interior on top (its windows are keyed out).
+   o.img: forward picture key · o.cabin: interior key, or fn(t) · o.zoom: fn(p) for the slow push in */
 function insideShot(o) {
   return (ctx, t, dt, S, L) => {
     const p = t / o.dur;
@@ -255,48 +205,49 @@ function insideShot(o) {
     const jolt = L.jolt ? L.jolt * (Math.random() - .5) : 0;
     ctx.translate(jolt, jolt * 0.6 + Math.sin(t * 20) * 2 * U.clamp(speed / 8));
     if (o.outside) o.outside(ctx, t, dt, S, L, light, sway);
-    else drawForward(ctx, { z: S.z, light, mode: o.mode, sway, lights: U.clamp((0.9 - light) * 2), lit: U.clamp(1 - light) });
+    else drawForwardImg(ctx, A[o.img], { zoom: o.zoom ? o.zoom(p) : 1.15, fx: o.fx, fy: o.fy, light, sway, lights: U.clamp((0.9 - light) * 2) });
     S.inGlass.wipers = o.wipers ?? true;
     S.inGlass.update(dt, { rain, refill: o.refill ?? rain * 1.6, speed: o.wiperSpeed || 1.15, mudSlide: 55 });
     S.inGlass.draw(ctx, o.hazeMax ?? 0.82);
-    drawCabin(ctx, light);
+    const cab = typeof o.cabin === 'function' ? o.cabin(t, L) : (o.cabin || 'inAnxious');
+    drawInterior(ctx, A[cab], light);
     ctx.restore();
     if (L.jolt) L.jolt = Math.max(0, L.jolt - dt * 40);
     if (L.flash != null) drawLightning(ctx, t - L.flash, L.flashSeed);
   };
 }
 
-function facesShot(o) {
-  return (ctx, t, dt, S, L) => {
-    const p = t / o.dur;
-    const light = typeof o.light === 'function' ? o.light(p) : o.light;
-    const rain = o.rain ?? 0.6;
-    S.faceGlass.wipers = o.wipers ?? true;
-    S.faceGlass.update(dt, { rain, refill: rain * 1.4, speed: 1.15, mudSlide: 40 });
-    const [l, r] = typeof o.faces === 'function' ? o.faces(t) : o.faces;
-    drawFacesShot(ctx, S, t, A[l], A[r], { light, shake: o.shake ? o.shake(t) : 0, zoom: o.zoom ? o.zoom(p) : 1, bob: o.bob, hazeMax: o.hazeMax });
-    drawRain(ctx, t + S.time, rain * 0.6);
-    if (L.flash != null) drawLightning(ctx, t - L.flash, L.flashSeed);
-  };
+/* Behind the car when we look at it from the front: the vines, the forest track, or the forest in sunshine. */
+function frontBackdrop(ctx, S, bg, light) {
+  if (bg === 'forest' || bg === 'sunlit') {
+    ctx.save(); ctx.filter = bg === 'sunlit' ? 'blur(3px) brightness(1.35) saturate(1.2) sepia(0.15)' : 'blur(3px)';
+    drawCover(ctx, A.fwdForest, 1.25, 0.5, 0.55); ctx.restore();
+    if (bg === 'forest') mist(ctx, 0.25, 200);
+    return;
+  }
+  drawCover(ctx, A.scSky, 1.1, 0.5, 0.3);
+  drawStormClouds(ctx, light, S.time * 25);
+  drawCover(ctx, A.scVinesFwd, 1.35, 0.5, 0.45);
+  mist(ctx, 0.3, 250);
 }
 
-/* Close-up on the faces using the front-on car picture: the windscreen fills the frame. */
+/* Close-up on the faces using the front-on car picture: the windscreen fills the frame.
+   o: { img, bg: 'vines'|'forest'|'sunlit', light, rain, zoom(p), shake(t), thunder, lurch(t) } */
 function frontCloseShot(o) {
   return (ctx, t, dt, S, L) => {
     const p = t / o.dur, light = typeof o.light === 'function' ? o.light(p) : o.light;
     if (o.thunder) once(L, 'thunder', t > 0.05, () => { flash(L, t); SFX.thunder(1); });
     const sh = o.shake ? o.shake(t) : 0, z = o.zoom(p);
-    drawCover(ctx, A.scSky, 1.1, 0.5, 0.3);
-    drawStormClouds(ctx, light, S.time * 25);
-    drawCover(ctx, A.scVinesFwd, 1.35, 0.5, 0.45);
-    mist(ctx, 0.3, 250);
+    frontBackdrop(ctx, S, o.bg || 'vines', light);
     darken(ctx, (1 - light) * 0.75);
     ctx.save();
-    ctx.translate(800 + (Math.random() - .5) * sh, 470 + Math.sin(t * 19) * 5 + (Math.random() - .5) * sh);
+    ctx.translate(800 + (Math.random() - .5) * sh, 470 + Math.sin(t * 19) * 5 * (o.bob ?? 1) + (Math.random() - .5) * sh);
+    if (o.lurch) ctx.rotate(o.lurch(t));
     ctx.scale(z, z);
     ctx.drawImage(A[o.img], -575, -262);      // centred on the faces behind the windscreen
     ctx.restore();
     darken(ctx, (1 - light) * 0.25);
+    if (light > 1) sunshine(ctx, light - 1);
     drawRain(ctx, t + S.time, o.rain);
     if (L.flash != null) drawLightning(ctx, t - L.flash, L.flashSeed);
   };
@@ -362,16 +313,15 @@ const SHOTS = [
       },
     }),
   },
-  { // 4. Close on the two of them through the windscreen as the thunder cracks
-    // (uses cit_worried_front; swap to cit_front_S_shocked when it exists)
+  { // 4. Close on the two of them through the windscreen as the thunder cracks: both shocked
     name: 'front-close-thunder', dur: 2.6,
-    draw: frontCloseShot({ dur: 2.6, img: 'carFront', light: p => U.lerp(0.42, 0.38, p), rain: 0.8, thunder: true, shake: t => t < 0.7 ? 14 * (1 - t / 0.7) : 0, zoom: p => U.lerp(2.35, 2.65, U.ease(p)) }),
+    draw: frontCloseShot({ dur: 2.6, img: 'frontShock', light: p => U.lerp(0.42, 0.38, p), rain: 0.8, thunder: true, shake: t => t < 0.7 ? 14 * (1 - t / 0.7) : 0, zoom: p => U.lerp(2.35, 2.65, U.ease(p)) }),
   },
   { // 5. Inside, looking out: low visibility, wipers clear the odd swath, mud hits the screen
     name: 'inside-vines', dur: 6.5,
     enter: S => { S.inGlass.fillHaze(0.9); },
     draw: insideShot({
-      dur: 6.5, speed: 9, mode: 'vines', light: p => U.lerp(0.38, 0.3, p), rain: 0.9, hazeMax: 0.85,
+      dur: 6.5, speed: 9, img: 'fwdVines', fy: 0.4, zoom: p => 1.12 + p * 0.1, cabin: 'inAnxious', light: p => U.lerp(0.38, 0.3, p), rain: 0.9, hazeMax: 0.85,
       sway: (t, L) => {
         once(L, 'swerve', t > 2.3, () => { S_.inGlass.splat(7, [180, 90, 1240, 280]); SFX.skid(1); SFX.squelch(); L.jolt = 18; });
         once(L, 'flash', t > 4.6, () => { flash(L, t); thunderAfter(0.5, 0.8); });
@@ -410,28 +360,30 @@ const SHOTS = [
     name: 'inside-forest', dur: 4.6,
     enter: S => { S.inGlass.fillHaze(0.95); },
     draw: insideShot({
-      dur: 4.6, speed: t => t < 3.3 ? 4 : Math.max(0, 4 - (t - 3.3) * 6), mode: 'forest', light: 0.12, rain: 1, hazeMax: 0.92, wiperSpeed: 1.25,
+      dur: 4.6, speed: t => t < 3.3 ? 4 : Math.max(0, 4 - (t - 3.3) * 6), img: 'fwdForest', fy: 0.45, zoom: p => 1.12 + Math.min(p, 0.72) * 0.1,
+      cabin: t => t < 3.3 ? 'inAnxious' : 'inShocked', light: 0.12, rain: 1, hazeMax: 0.92, wiperSpeed: 1.25,
       sway: (t, L) => {
         once(L, 'brake', t > 3.3, () => { SFX.skid(1.4); L.jolt = 26; SFX.setEngine(0.4, 0.6); });
         return t > 3.3 ? Math.sin((t - 3.3) * 10) * 0.07 : 0;
       },
     }),
   },
-  { // 10. Two shocked faces
+  { // 10. Two shocked faces: the car lurches to a stop, nose down
     name: 'faces-brake', dur: 1.6,
-    draw: facesShot({ dur: 1.6, faces: ['sShock', 'jShock'], light: 0.28, rain: 0.9, shake: t => 16 * Math.exp(-t * 2), zoom: p => 1.04 + p * 0.08, bob: 0 }),
+    draw: frontCloseShot({ dur: 1.6, img: 'frontShock', bg: 'forest', light: 0.3, rain: 0.9, shake: t => 16 * Math.exp(-t * 2), zoom: p => 1.55 + p * 0.12, bob: 0,
+      lurch: t => Math.sin(t * 9) * 0.02 * Math.exp(-t * 2.5) }),
   },
   { // 11. Inside: two café chairs, right in front of them!
     name: 'inside-chairs', dur: 2.2,
     draw: insideShot({
-      dur: 2.2, speed: t => Math.max(0, 3 - t * 3), light: 0.16, rain: 0.8, hazeMax: 0.35, refill: 0.3, wiperSpeed: 1.5,
+      dur: 2.2, speed: t => Math.max(0, 3 - t * 3), cabin: 'inShocked', light: 0.16, rain: 0.8, hazeMax: 0.35, refill: 0.3, wiperSpeed: 1.5,
       outside: (ctx, t, dt, S, L, light, sway) => {
-        drawForward(ctx, { z: S.z, light, mode: 'forest', sway: sway * 0.5, lights: 1 });
+        drawForwardImg(ctx, A.fwdClearing, { zoom: 1.2, fy: 0.5, light, sway: sway * 0.5, lights: 1 });
         const k = U.easeOut(U.clamp(t / 1.1));
-        drawBistro(ctx, 800, 760 + k * 120, 1.1 + k * 0.7, { table: false });
+        drawBistro(ctx, 800, 440 + k * 40, 0.36 + k * 0.16, { table: false });
         // caught in the headlights
         ctx.save(); ctx.globalCompositeOperation = 'lighter';
-        const g = ctx.createRadialGradient(800, 450, 20, 800, 450, 520);
+        const g = ctx.createRadialGradient(800, 400, 20, 800, 400, 420);
         g.addColorStop(0, 'rgba(255,230,160,.3)'); g.addColorStop(1, 'rgba(255,230,160,0)');
         ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore();
       },
@@ -466,14 +418,14 @@ const SHOTS = [
     name: 'inside-table', dur: 4.2,
     enter: S => { SFX.setEngine(0, 0.5); SFX.setRain(0.4); },
     draw: insideShot({
-      dur: 4.2, speed: 0, light: p => U.lerp(0.18, 0.4, p), rain: p => U.lerp(0.5, 0.25, p), hazeMax: 0.7, refill: 0.5,
+      dur: 4.2, speed: 0, cabin: 'inSunny', light: p => U.lerp(0.18, 0.4, p), rain: p => U.lerp(0.5, 0.25, p), hazeMax: 0.7, refill: 0.5,
       outside: (ctx, t, dt, S, L, light) => {
-        drawForward(ctx, { z: S.z, light, mode: 'forest', lights: 1 });
-        drawBistro(ctx, 800, 760, 1.2, { bottle: true, flutes: true, fill: 0 });
+        drawForwardImg(ctx, A.fwdClearing, { zoom: 1.2, fy: 0.5, light, lights: 1 });
+        drawBistro(ctx, 800, 480, 0.5);
         darken(ctx, U.clamp((1 - light) * 0.35));
         // headlight glow on the table
         ctx.save(); ctx.globalCompositeOperation = 'lighter';
-        const g = ctx.createRadialGradient(800, 520, 20, 800, 520, 460);
+        const g = ctx.createRadialGradient(800, 400, 20, 800, 400, 360);
         g.addColorStop(0, 'rgba(255,230,160,.22)'); g.addColorStop(1, 'rgba(255,230,160,0)');
         ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore();
       },
@@ -481,33 +433,16 @@ const SHOTS = [
   },
   { // 14. Smiles
     name: 'faces-smile', dur: 3,
-    draw: facesShot({ dur: 3, faces: ['sLaugh', 'jLaugh'], light: 0.45, rain: 0.25, bob: 3 }),
+    draw: frontCloseShot({ dur: 3, img: 'frontSmile', bg: 'forest', light: 0.5, rain: 0.25, zoom: p => U.lerp(2.0, 2.1, p), bob: 0.4 }),
   },
   { // 15. Side: forest to the left, a vast open space to the right; it brightens; birdsong
     name: 'side-open', dur: 4.8,
     enter: S => { SFX.setRain(0.05); setTimeout(() => SFX.birds(true), 1500); },
     draw: (ctx, t, dt, S, L) => {
       const p = t / 4.8, light = U.lerp(0.4, 1.7, U.ease(p));
-      drawSky(ctx, light, 700);
-      // distant open country, low down: it feels huge
-      ctx.fillStyle = '#9bb0b8'; ctx.beginPath(); ctx.moveTo(0, H);
-      for (let x = 0; x <= W; x += 10) ctx.lineTo(x, 700 - 30 * U.noise1(x / 300 + 2)); ctx.lineTo(W, H); ctx.fill();
-      ctx.fillStyle = '#86a858'; ctx.fillRect(0, 735, W, H);
-      // forest on the left, fading out towards the open right
-      const off = S.off, ox = S.offX;
-      ox.clearRect(0, 0, W, H);
-      drawFarHills(ox, S.scroll, [50, 70, 60]);
-      drawForestBand(ox, S.scroll, 0.3, 760, 440, [40, 74, 46], 3, 40);
-      drawForestBand(ox, S.scroll, 0.6, 820, 560, [30, 62, 38], 7, 70);
-      ox.globalCompositeOperation = 'destination-in';
-      const g = ox.createLinearGradient(520, 0, 980, 0); g.addColorStop(0, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)');
-      ox.fillStyle = g; ox.fillRect(0, 0, W, H); ox.globalCompositeOperation = 'source-over';
-      ctx.drawImage(off, 0, 0);
-      // grass track instead of the road
-      ctx.fillStyle = '#6a8a3e'; ctx.fillRect(0, 795, W, H);
-      ctx.fillStyle = '#7a5838'; ctx.fillRect(0, 840, 1000, 60);
-      drawBistro(ctx, 1290, 868, 0.58, { bottle: true, flutes: true, fill: 0 });
-      drawCarSide(ctx, { x: 700, ground: 868, s: 0.62, scroll: S.scroll, bumpAmt: 0 });
+      drawCover(ctx, A.clearing, 1.04 - p * 0.03, 0.4, 0.8);
+      drawBistro(ctx, 1240, 830, 0.58);
+      drawCarSide(ctx, { x: 560, ground: 838, s: 0.62, scroll: S.scroll, bumpAmt: 0 });
       darken(ctx, U.clamp((1 - light) * 0.75));
       drawRain(ctx, t + S.time, U.clamp(0.4 - p * 0.8));
       // shafts of sunlight from the right
@@ -517,22 +452,22 @@ const SHOTS = [
       ctx.fillStyle = sg; ctx.fillRect(0, 0, W, H); ctx.restore();
     },
   },
-  { // 16. Amazed, in awe
+  { // 16. Amazed, in awe, warm sunshine on their faces
     name: 'faces-awe', dur: 3,
-    draw: facesShot({ dur: 3, faces: ['sAwe', 'jAwe'], light: 1.6, rain: 0, wipers: false, bob: 1.5, hazeMax: 0.3, zoom: p => 1 + p * 0.05 }),
+    draw: frontCloseShot({ dur: 3, img: 'frontAwe', bg: 'sunlit', light: 1.55, rain: 0, zoom: p => U.lerp(2.0, 2.12, p), bob: 0.3 }),
   },
   { // 17. Inside: the champagne landscape, a muddy grass track, a church… and a rainbow
     name: 'inside-landscape', dur: 5,
     enter: S => { SFX.setRain(0); SFX.sparkle(); },
     draw: insideShot({
-      dur: 5, speed: 0, light: 1.6, rain: 0, hazeMax: 0.4, refill: 0, wipers: false,
+      dur: 5, speed: 0, cabin: 'inSunny', light: 1.6, rain: 0, hazeMax: 0.4, refill: 0, wipers: false,
       outside: (ctx, t, dt, S, L) => {
         S.inGlass.hx.globalCompositeOperation = 'destination-out';
         S.inGlass.hx.globalAlpha = dt * 0.8; S.inGlass.hx.fillRect(0, 0, W, H);
         S.inGlass.hx.globalAlpha = 1; S.inGlass.hx.globalCompositeOperation = 'source-over';
-        ctx.save(); ctx.filter = LANDSCAPE_FILTER; drawCover(ctx, A.land, 1.12 + t * 0.006, 0.5, 0.42); ctx.restore();
-        drawRainbow(ctx, U.ease(U.clamp((t - 0.8) / 3)));
-        drawBistro(ctx, 800, 700, 0.8, { bottle: true, flutes: true, fill: 0 });
+        drawPano(ctx, 1 + t * 0.006);
+        drawRainbow(ctx, U.ease(U.clamp((t - 0.8) / 3)), 1000, 470, 420);
+        drawBistro(ctx, 800, 480, 0.5);
       },
     }),
   },
@@ -541,20 +476,16 @@ const SHOTS = [
     enter: (S, L) => { L.title = layoutTitle(S.ctx); },
     draw: (ctx, t, dt, S, L) => {
       const T = L.title;
-      ctx.save(); ctx.filter = LANDSCAPE_FILTER;
-      drawCover(ctx, A.land, 1.12 + U.easeOut(U.clamp(t / 9)) * 0.22, 0.5, 0.42);
-      ctx.restore();
-      drawRainbow(ctx, 1);
+      // the camera pulls back from the windscreen framing to the whole panorama
+      const zk = U.ease(U.clamp(t / 2.6));
+      drawPano(ctx, 1.03 + U.easeOut(U.clamp(t / 9)) * 0.08, zk);
+      drawRainbow(ctx, 1, U.lerp(1000, 980, zk), U.lerp(470, 760, zk), U.lerp(420, 620, zk));
       // table rushes past underneath us
       const k = U.easeIn(U.clamp(t / 2.2));
-      if (k < 1) drawBistro(ctx, 800, 700 + k * 900, 0.8 + k * 2.2, { bottle: true, flutes: true, fill: 0 });
-      // cabin grows and falls away as we pass through the windscreen
+      if (k < 1) drawBistro(ctx, 800, 480 + k * 1000, 0.5 + k * 2.4);
+      // the cabin grows and falls away as we pass through the windscreen
       const c = U.ease(U.clamp(t / 1.8));
-      if (c < 1) {
-        ctx.save(); ctx.globalAlpha = 1 - c;
-        ctx.translate(800, 330); ctx.scale(1 + c * 2.2, 1 + c * 2.2); ctx.translate(-800, -330);
-        drawCabin(ctx, 1.6); ctx.restore();
-      }
+      if (c < 1) drawInterior(ctx, A.inSunny, 1.6, { alpha: 1 - c, scale: 1 + c * 2.4 });
       // title
       const tt = t - 2.3;
       if (tt > 0) {
@@ -588,12 +519,12 @@ const SHOTS = [
     name: 'toast', dur: 5.5, hold: true,
     enter: S => { setTimeout(() => SFX.clink(), 1900); },
     draw: (ctx, t, dt, S, L) => {
-      ctx.save(); ctx.filter = LANDSCAPE_FILTER; drawCover(ctx, A.land, 1.3, 0.5, 0.5, 0, 40); ctx.restore();
+      drawCover(ctx, A.pano, 1.18, 0.6, 0.75);
       drawRainbow(ctx, 0.9, 1000, 820, 700);
       drawRisingBubbles(ctx, t + 9, 34, 0.9);
-      // the bistro table beside them, the bottle open
-      drawTable(ctx, 1160, 880, 1.15, { bottle: true });
-      drawChair(ctx, 1390, 888, 1.15, -1);
+      // the bistro table beside them
+      drawTable(ctx, 1170, 890, 1.0);
+      drawChair(ctx, 1410, 896, 1.05, -1);
       // S & J, arm in arm; a slight nod and settle
       const img = A.cheers, h = 860, w = img.width * h / img.height;
       const intro = U.easeOut(U.clamp(t / 0.9));
@@ -631,12 +562,11 @@ const Intro = {
       ctx, scroll: 0, z: 0, time: 0,
       mud: new Particles(),
       inGlass: makeInsideGlass('rgba(78,86,100,1)'),
-      faceGlass: makeFaceGlass(),
       lens: new Glass({ path: c => { c.beginPath(); c.rect(0, 0, W, H); }, pivots: [], len: 0 }),
       off: makeCanvas(W, H),
     };
     S.offX = S.off.getContext('2d');
-    S.inGlass.fillHaze(0.85); S.faceGlass.fillHaze(0.6);
+    S.inGlass.fillHaze(0.85);
     this.S = S; this.idx = -1; this.onMenu = onMenu; this.menuShown = false; this.running = true;
     this.go(from);
   },
