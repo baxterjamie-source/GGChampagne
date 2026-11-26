@@ -686,9 +686,10 @@ function drawSetSide(ctx, carX, ground, carS = 0.62, o = {}) {
   const far = o.farAlpha ?? 1;
   // the far chair sits a little to the right and higher (seen past the near one at a slight angle), so the two read as two
   const view = o.view || 'side';                           // 'profile' = true side view (shot 15)
-  if (far > 0.01) { ctx.save(); ctx.globalAlpha = far; drawSetChair(ctx, cx + 0.32 * m, ground - 12, m * 0.95, 1, view, far); ctx.restore(); }
-  if (o.table !== false) drawSetTable(ctx, cx + SET.tableX * m + 0.15 * m, ground - 6, m);
-  drawSetChair(ctx, cx - 0.1 * m, ground + 8, m * 1.03, 1, view);
+  // (side by side across our view, so nearly the same place: just a small step right and up for the far one)
+  if (far > 0.01) { ctx.save(); ctx.globalAlpha = far; drawSetChair(ctx, cx + 0.14 * m, ground - 4, m * 0.985, 1, view, far); ctx.restore(); }
+  if (o.table !== false) drawSetTable(ctx, cx + SET.tableX * m + 0.15 * m, ground - 2, m);
+  drawSetChair(ctx, cx - 0.04 * m, ground + 3, m * 1.01, 1, view);
   return cx;
 }
 
