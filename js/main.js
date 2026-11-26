@@ -247,7 +247,7 @@ $('#menu').addEventListener('click', e => {
     ]);
   } catch (err) {
     $('#loading-text').textContent = location.protocol === 'file:'
-      ? 'Oh là là! Open this through the preview server: run "node reveal_app/serve.js", then go to http://localhost:8427/app/'
+      ? 'Oh là là! Open this through the preview server: run "node reveal_app/serve.js", then go to http://localhost:8427/'
       : 'Oh là là, something did not load. ' + err.message;
     console.error(err);
     return;
