@@ -23,13 +23,19 @@ function show(id) { document.querySelectorAll('.screen').forEach(s => s.classLis
 let dpr = 1, mode = null;   // mode: { frame(dt) }
 function resize() {
   dpr = Math.min(window.devicePixelRatio || 1, 2);
-  stage.width = Math.round(innerWidth * dpr); stage.height = Math.round(innerHeight * dpr);
-  $('#rotate-hint').hidden = !(Intro.running && !Intro.menuShown && innerHeight > innerWidth);
+  // size the pixels to the canvas as laid out (100vw x 100dvh), falling back to the window
+  const w = stage.clientWidth || innerWidth, h = stage.clientHeight || innerHeight;
+  stage.width = Math.round(w * dpr); stage.height = Math.round(h * dpr);
+  $('#rotate-hint').hidden = !(Intro.running && !Intro.menuShown && h > w);
 }
 addEventListener('resize', resize);
+addEventListener('orientationchange', () => setTimeout(resize, 250));
 let last = performance.now();
 function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  // iPhones sometimes report the old size right after rotating: re-check against the real CSS size
+  if (stage.clientWidth && (Math.abs(stage.width - Math.round(stage.clientWidth * dpr)) > 2 ||
+      Math.abs(stage.height - Math.round(stage.clientHeight * dpr)) > 2)) resize();
   if (mode) mode.frame(dt);
   requestAnimationFrame(loop);
 }
@@ -180,13 +186,16 @@ function startIntro(from = 0) {
   resize();
   mode = {
     frame(dt) {
-      // Fill the screen: scale up past "fit" by up to 25%, which covers a phone held sideways
-      // (about 19.5:9). The spare height is trimmed where each shot can lose it: shot.fy is
+      // Fill the screen. Wider than 16:9 (a phone held sideways, even with the browser bar showing,
+      // up to ~2.6:1): always fill the width and trim the spare height. Narrower (tablets): scale up
+      // past "fit" by at most 25%. The trim happens where each shot can lose it: shot.fy is
       // 0 = keep the top, 0.5 = trim evenly, 1 = keep the bottom (a number, or fn(t)).
+      // VIEW tells the shots which rows of the 1600x900 frame are actually on screen.
       const cw = stage.width, ch = stage.height;
-      const sc = Math.min(Math.max(cw / W, ch / H), Math.min(cw / W, ch / H) * 1.25);
+      const sc = cw / ch >= W / H ? cw / W : Math.min(ch / H, (cw / W) * 1.25);
       const sh = SHOTS[Intro.idx] || {}, spare = ch - H * sc;
       const fy = spare >= 0 ? 0.5 : (typeof sh.fy === 'function' ? sh.fy(Intro.t) : (sh.fy ?? 0.5));
+      VIEW.top = Math.max(0, -spare * fy / sc); VIEW.bottom = Math.min(H, VIEW.top + ch / sc);
       sctx.setTransform(1, 0, 0, 1, 0, 0);
       sctx.fillStyle = '#000'; sctx.fillRect(0, 0, cw, ch);
       sctx.setTransform(sc, 0, 0, sc, (cw - W * sc) / 2, spare * fy);

@@ -28,6 +28,9 @@ function makeCanvas(w, h) {
   return c;
 }
 
+/* Rows of the 1600x900 frame that are on screen right now (main.js trims the height on wide phones). */
+const VIEW = { top: 0, bottom: 900 };
+
 /* ---------- Assets ----------
    Images and sounds live in assets/ next to index.html (copied there from reveal_app/images and
    reveal_app/sounds by tools/sync_assets.ps1). The one-file build puts them all in
