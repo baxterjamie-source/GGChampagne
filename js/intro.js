@@ -611,17 +611,19 @@ const SHOTS = [
       drawCover(ctx, A.panoF || A.pano, 1.18, 0.6, 0.75);
       drawRainbow(ctx, 1 - U.seg(t, 5.0, 7.5), 1200, 800, 600);          // fades away as the menu comes up
       drawRisingBubbles(ctx, t + 9, 34, 0.9);
-      // the bistro set beside them, in the same layout as everywhere else: we stand on the car's side
-      // looking out over the valley, so we see the two chairs side by side from behind, the table just beyond
-      const ground = Math.min(866, VIEW.bottom - 10), m = Math.min(400, (VIEW.bottom - VIEW.top - 80) / 1.35);   // px per metre
-      const tm = m * 0.84;                                                   // the table is 0.75 m further away
-      drawSetTable(ctx, 1290, ground - 0.22 * m, tm);
-      drawSetChair(ctx, 1290 - SET.chairZ * m, ground, m, 1, 'back');
-      drawSetChair(ctx, 1290 + SET.chairZ * m, ground, m, 1, 'back');
       // S & J, arm in arm; a slight nod and settle
       // sized to the rows on screen (a sideways phone trims the height): feet near the bottom, heads clear of the top
       const room = VIEW.bottom - VIEW.top, Y = Math.min(860, VIEW.bottom - 40);
       const img = A.cheers, h = Math.min(760, room - 50), w = img.width * h / img.height;
+      // the bistro set, a few steps behind them on the grass beside the track (same layout as everywhere else:
+      // we're on the car's side looking out over the valley, so two chair backs side by side, the table just beyond).
+      // Sized to the couple: they're ~1.7 m tall at h * 0.8 px; the set stands further back, so smaller still.
+      // (the only open grass in this view is the strip beside the track, level with the couple, so the set
+      // stands there, a step behind them, feet on that grass; drawn a little under true scale so it stays modest)
+      const m = h * 0.33, cx = 1010, gy = Y - h * 0.05;                      // px per metre at the chairs; their feet (the couple's are at ~Y - 10)
+      drawSetTable(ctx, cx, gy - 0.12 * m, m * 0.9);                         // 0.75 m further: a touch higher, smaller
+      drawSetChair(ctx, cx - SET.chairZ * m * 1.15, gy, m, 1, 'back');
+      drawSetChair(ctx, cx + SET.chairZ * m * 1.15, gy, m, 1, 'back');
       const intro = U.easeOut(U.clamp(t / 0.9));
       const nod = Math.sin(t * 2.4) * 0.012 * U.clamp(t - 0.8) * Math.exp(-Math.max(0, t - 3) * 0.4);
       ctx.save();
