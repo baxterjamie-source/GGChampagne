@@ -368,9 +368,23 @@ function drawLightning(ctx, age, seed) {
     ctx.restore();
   }
   // flash
-  const flick = age < 0.08 ? 0.75 : age < 0.14 ? 0.15 : age < 0.22 ? 0.55 : 0.55 * Math.exp(-(age - 0.22) * 6);
-  ctx.fillStyle = `rgba(225,232,255,${flick})`;
+  ctx.fillStyle = `rgba(225,232,255,${lightningFlick(age)})`;
   ctx.fillRect(0, 0, W, H);
+}
+// How bright a lightning flash is, `age` seconds after the strike: a double flicker, then a fade.
+function lightningFlick(age) {
+  if (age < 0 || age > 0.9) return 0;
+  return age < 0.08 ? 0.75 : age < 0.14 ? 0.15 : age < 0.22 ? 0.55 : 0.55 * Math.exp(-(age - 0.22) * 6);
+}
+
+/* Nightfall: from the start of the rain the light keeps dropping. On top of darken(), this pulls
+   everything towards black as light falls below ~0.45, so by the forest (light ≈ 0.05) it's
+   almost pitch dark and the headlights are nearly all you can see. */
+function nightShade(ctx, light, k = 1) {
+  const n = U.clamp((0.45 - light) / 0.42);
+  if (n <= 0) return;
+  ctx.save(); ctx.globalAlpha = Math.pow(n, 1.15) * 0.8 * k; ctx.fillStyle = '#04060b';
+  ctx.fillRect(-300, -300, W + 600, H + 600); ctx.restore();
 }
 
 /* ---------- Glass: rain haze, drops, mud, wipers ---------- */
@@ -474,13 +488,27 @@ function makeInsideGlass(hazeCol) {
   // haze and mud cover the whole frame; the interior painting on top leaves them visible only in the windows
   return new Glass({ path: c => { c.beginPath(); c.rect(0, 0, W, H); }, pivots: [{ x: 600, y: 486 }, { x: 1010, y: 486 }], len: 300, hazeCol });
 }
-function drawInterior(ctx, img, light = 1, o = {}) {
+// The interior gets darker with the light outside. (Darkened on a scratch canvas: canvas
+// filters are slow on phones, and a dark wash on the main canvas would also cover the windows.)
+const _intC = { c: null, x: null };
+function drawInterior(ctx, img, light = 1, o = {}, flash = 0) {
+  const b = U.clamp(1 - (1 - Math.min(light, 1)) * 0.85, 0.16, 1);
+  let src = img;
+  if (b < 0.99 || flash > 0) {
+    if (!_intC.c) { _intC.c = makeCanvas(img.width, img.height); _intC.x = _intC.c.getContext('2d'); }
+    const c = _intC.c, x = _intC.x;
+    if (c.width !== img.width || c.height !== img.height) { c.width = img.width; c.height = img.height; }
+    x.globalCompositeOperation = 'copy'; x.globalAlpha = 1; x.drawImage(img, 0, 0);
+    x.globalCompositeOperation = 'source-atop';
+    if (b < 0.99) { x.globalAlpha = 1 - b; x.fillStyle = '#05070c'; x.fillRect(0, 0, c.width, c.height); }
+    if (flash > 0) { x.globalAlpha = flash * 0.18; x.fillStyle = '#dfe6ff'; x.fillRect(0, 0, c.width, c.height); }   // lightning spilling in
+    x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
+    src = c;
+  }
   ctx.save();
   if (o.alpha != null) ctx.globalAlpha = o.alpha;
   if (o.scale) { ctx.translate(WINDSCREEN.cx, WINDSCREEN.cy); ctx.scale(o.scale, o.scale); ctx.translate(-WINDSCREEN.cx, -WINDSCREEN.cy); }
-  const b = U.clamp(1 - (1 - Math.min(light, 1)) * 0.6, 0.35, 1);
-  if (b < 0.99) ctx.filter = `brightness(${b.toFixed(3)})`;
-  ctx.drawImage(img, 0, 0, W, H);
+  ctx.drawImage(src, 0, 0, W, H);
   ctx.restore();
 }
 
@@ -496,7 +524,12 @@ function drawForwardImg(ctx, img, o) {
   ctx.drawImage(img, WINDSCREEN.cx - w * fx, WINDSCREEN.cy - h * fy, w, h);
   ctx.restore();
   darken(ctx, U.clamp((1 - o.light) * (o.dark ?? 0.75)));
+  nightShade(ctx, o.light);
   if (o.lights) darken(ctx, 0.3 * o.lights);                  // outside the beam it's darker still
+  if (o.flash > 0) {                                           // lightning: the whole landscape lights up for an instant
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(200,212,240,${(o.flash * 0.85).toFixed(3)})`;
+    ctx.fillRect(0, 0, W, H); ctx.restore();
+  }
   if (o.props) { ctx.save(); if ((o.propsBright ?? 1) < 1) ctx.filter = `brightness(${o.propsBright})`; o.props(ctx); ctx.restore(); }
   if (o.lights) drawHeadlightGlow(ctx, o.lights);
 }
@@ -515,8 +548,8 @@ function drawHeadlightGlow(ctx, k, cx = 800, cy = 468) {
 /* ---------- Bistro set (painted props, magenta keyed and trimmed) ----------
    Anchored bottom-centre on the ground. In units of s: a chair is 310 tall, the table with its bottle 500. */
 const CHAIR_H = 310, TABLE_H = 500;
-function drawChair(ctx, x, y, s, flip = 1, tip = 0) {
-  const img = A.chair, h = CHAIR_H, w = img.width * h / img.height;
+function drawChair(ctx, x, y, s, flip = 1, tip = 0, back = false) {
+  const img = (back && A.chairBack) || A.chair, h = CHAIR_H, w = img.width * h / img.height;
   ctx.save(); ctx.translate(x, y); ctx.scale(s * flip, s);
   if (tip) { ctx.translate(-w * 0.4, 0); ctx.rotate(-tip); ctx.translate(w * 0.4, 0); }   // tips up on its back foot
   ctx.drawImage(img, -w / 2, -h, w, h);
@@ -571,42 +604,77 @@ function drawCork(ctx, x, y, s, rot = 0) {
   shape(); ctx.strokeStyle = 'rgba(70,46,26,.7)'; ctx.lineWidth = 1.4; ctx.stroke();
   ctx.restore();
 }
-/* The set always faces the valley: the chairs have their backs to the car, so whoever sits there
-   looks out over the view, with the table in front of them. (The chair picture faces left; flip -1 faces right.) */
+/* Soft contact shadow on the ground (a radial gradient: canvas blur filters are too slow on phones). */
 function groundShadow(ctx, x, y, rx, a = 0.35) {
-  ctx.save(); ctx.fillStyle = `rgba(20,16,10,${a})`; ctx.filter = 'blur(5px)';
-  ctx.beginPath(); ctx.ellipse(x, y, rx, rx * 0.16, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.18);
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+  g.addColorStop(0, `rgba(18,14,8,${a})`); g.addColorStop(0.6, `rgba(18,14,8,${a * 0.6})`); g.addColorStop(1, 'rgba(18,14,8,0)');
+  ctx.fillStyle = g; ctx.fillRect(-rx, -rx, rx * 2, rx * 2); ctx.restore();
 }
-// Seen from the side (the car on the left, the valley to the right): chairs on the car side facing right, table beyond.
-function drawBistroSide(ctx, x, y, s, o = {}) {
-  groundShadow(ctx, x - 30 * s, y, 230 * s);
-  drawChair(ctx, x - 60 * s, y - 10 * s, s * 0.92, -1);        // the far chair, a little behind
-  if (o.table !== false) drawTable(ctx, x + 110 * s, y - 4 * s, s);
-  drawChair(ctx, x - 140 * s, y, s, -1);                        // the near chair
+
+/* ---------- THE BISTRO SET: one layout, used by every shot ----------
+   On the hilltop, in metres. x runs towards the valley (the way the car is heading); z runs across
+   (+ = the car's right, S's side). The two chairs stand side by side at x = 0, z = ±0.4, BOTH FACING
+   THE VALLEY (+x), backs to the car. The table stands just beyond them at x = 0.75, z = 0. The car
+   stops with its front bumper 1.6 m short of the chairs. Real sizes: chair 0.85 m tall, table with
+   its bottle 1.15 m. Each view below projects this same layout from its own camera, feet on the ground.
+   (The chair picture is a front three-quarter view facing left: flip -1 faces right. Seen from
+   behind, it uses A.chairBack when that picture exists.) */
+const SET = { chairZ: 0.4, tableX: 0.75, gap: 1.6, chairM: 0.85, tableM: 1.15 };
+function drawSetChair(ctx, x, y, pxPerM, flip, back, a = 1) {
+  const s = SET.chairM * pxPerM / CHAIR_H;
+  groundShadow(ctx, x, y, 0.36 * pxPerM, 0.4 * a);
+  drawChair(ctx, x, y, s, flip, 0, back);
 }
-// Seen from the car, looking ahead: the chair backs towards us, the table just beyond them.
-function drawBistroAhead(ctx, x, y, s, o = {}) {
-  groundShadow(ctx, x, y, 200 * s);
-  if (o.table !== false) drawTable(ctx, x, y - 34 * s, s * 0.9);
-  drawChair(ctx, x - 100 * s, y, s, -1);
-  drawChair(ctx, x + 100 * s, y, s, 1);
+function drawSetTable(ctx, x, y, pxPerM) {
+  groundShadow(ctx, x, y, 0.42 * pxPerM, 0.4);
+  drawTable(ctx, x, y, SET.tableM * pxPerM / TABLE_H);
+}
+// From the back seat, looking ahead (+x). `dist` = metres from the camera to the chairs. The horizon in
+// the clearing picture sits at y 294; the camera is 1.15 m up. Chairs show their backs; the table is beyond.
+const AHEAD = { hz: 294, camH: 1.15, f: 420, cx: 800 };
+function drawSetAhead(ctx, dist, o = {}) {
+  const P = d => ({ y: AHEAD.hz + AHEAD.f * AHEAD.camH / d, m: AHEAD.f / d });
+  if (o.table !== false) { const t = P(dist + SET.tableX); drawSetTable(ctx, AHEAD.cx, t.y, t.m); }
+  const c = P(dist);
+  drawSetChair(ctx, AHEAD.cx - SET.chairZ * c.m, c.y, c.m, 1, true);
+  drawSetChair(ctx, AHEAD.cx + SET.chairZ * c.m, c.y, c.m, -1, true);
+}
+// From the side (the camera on the car's right; the car faces right, the valley is to the right).
+// carX/ground/carS as passed to drawCarSide. Both chairs face right (+x); the far chair is a touch higher.
+function drawSetSide(ctx, carX, ground, carS = 0.62, o = {}) {
+  const m = 183 * carS / 0.62;                              // pixels per metre at the car (wheelbase 2.4 m)
+  const bumper = carX + 300 * carS / 0.62, cx = bumper + SET.gap * m;
+  const far = o.farAlpha ?? 1;
+  if (far > 0.01) { ctx.save(); ctx.globalAlpha = far; drawSetChair(ctx, cx + 4, ground - 7, m * 0.97, -1, false, far); ctx.restore(); }
+  if (o.table !== false) drawSetTable(ctx, cx + SET.tableX * m, ground - 2, m);
+  drawSetChair(ctx, cx - 4, ground + 7, m * 1.03, -1, false);
+  return cx;
 }
 
 /* A faint, partial rainbow far off in the sky: just a piece of the arc (a0..a1, canvas angles; 1.5π is the top),
    fading out at both ends, soft-edged and see-through. */
-function drawRainbow(ctx, alpha, cx = 1150, cy = 780, r = 600, a0 = Math.PI * 1.52, a1 = Math.PI * 1.86) {
-  if (alpha <= 0.01) return;
-  const cols = ['#e8443a', '#f39a2c', '#f6d84a', '#5cb85c', '#3d8fd6', '#6a5acd'], bw = r * 0.012 + 2;
-  ctx.save(); ctx.filter = `blur(${(bw * 0.6).toFixed(1)}px)`; ctx.lineCap = 'butt'; ctx.lineWidth = bw + 1;
+// Drawn once to a scratch canvas at a fixed size, then just placed and scaled each frame
+// (drawing it live, blurred, every frame is what made the end of the film crawl on phones).
+let _rainbow = null;
+function rainbowSprite() {
+  if (_rainbow) return _rainbow;
+  const R = 600, a0 = Math.PI * 1.52, a1 = Math.PI * 1.86, cols = ['#e8443a', '#f39a2c', '#f6d84a', '#5cb85c', '#3d8fd6', '#6a5acd'], bw = 9;
+  const c = makeCanvas(2 * R + 60, R + 60), x = c.getContext('2d'), cx = R + 30, cy = R + 30;
+  x.filter = 'blur(5px)'; x.lineCap = 'butt'; x.lineWidth = bw + 1;
   const N = 36;
   for (let i = 0; i < N; i++) {
     const u0 = i / N, u1 = (i + 1) / N, fade = Math.pow(Math.sin(Math.PI * (u0 + u1) / 2), 1.6);
-    ctx.globalAlpha = alpha * 0.32 * fade;
-    cols.forEach((c, j) => {
-      ctx.strokeStyle = c; ctx.beginPath();
-      ctx.arc(cx, cy, r - j * bw, a0 + (a1 - a0) * u0, a0 + (a1 - a0) * u1 + 0.002); ctx.stroke();
-    });
+    x.globalAlpha = 0.32 * fade;
+    cols.forEach((col, j) => { x.strokeStyle = col; x.beginPath(); x.arc(cx, cy, R - j * bw, a0 + (a1 - a0) * u0, a0 + (a1 - a0) * u1 + 0.002); x.stroke(); });
   }
+  return (_rainbow = { c, R, cx, cy });
+}
+function drawRainbow(ctx, alpha, cx = 1150, cy = 780, r = 600) {
+  if (alpha <= 0.01) return;
+  const S = rainbowSprite(), k = r / S.R;
+  ctx.save(); ctx.globalAlpha = U.clamp(alpha);
+  ctx.drawImage(S.c, cx - S.cx * k, cy - S.cy * k, S.c.width * k, S.c.height * k);
   ctx.restore();
 }
 
