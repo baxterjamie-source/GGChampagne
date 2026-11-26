@@ -28,8 +28,15 @@ function makeCanvas(w, h) {
   return c;
 }
 
-/* ---------- Assets ---------- */
-const IMG_BASE = '../images/';
+/* ---------- Assets ----------
+   Images and sounds live in assets/ next to index.html (copied there from reveal_app/images and
+   reveal_app/sounds by tools/sync_assets.ps1). The one-file build puts them all in
+   window.INLINE_ASSETS as data URLs, keyed by the same path, e.g. 'images/SandJ/Cit-side.jpg'. */
+function assetUrl(rel) {
+  const inl = window.INLINE_ASSETS && window.INLINE_ASSETS[rel];
+  return inl || encodeURI('assets/' + rel);
+}
+/* sync_assets.ps1 reads this list to know which images to copy: keep one 'key: path' per line. */
 const ASSET_FILES = {
   bottle: 'vyno-veuve-clicquot-brut-yellow-label-champagne-bottle.jpg',
   side: 'SandJ/Cit-side.jpg',
@@ -64,7 +71,7 @@ function loadImage(src) {
     const img = new Image();
     img.onload = () => res(img);
     img.onerror = () => rej(new Error('Could not load ' + src));
-    img.src = encodeURI(IMG_BASE + src);
+    img.src = assetUrl('images/' + src);
   });
 }
 

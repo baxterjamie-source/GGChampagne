@@ -54,7 +54,7 @@ const Lessons = (() => {
     on: () => db.get('music', true),
     async load(name) {
       if (this.buf[name]) return this.buf[name];
-      const r = await fetch(`../sounds/${name}.mp3`);
+      const r = await fetch(assetUrl(`sounds/${name}.mp3`));
       const b = await SFX.ctx.decodeAudioData(await r.arrayBuffer());
       // trim the encoder silence at both ends (so the loop has no gap) and measure loudness
       let first = b.length, last = 0, sum = 0;
