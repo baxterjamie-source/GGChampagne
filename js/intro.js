@@ -616,8 +616,8 @@ const SHOTS = [
       const ground = Math.min(866, VIEW.bottom - 10), m = Math.min(400, (VIEW.bottom - VIEW.top - 80) / 1.35);   // px per metre
       const tm = m * 0.84;                                                   // the table is 0.75 m further away
       drawSetTable(ctx, 1290, ground - 0.22 * m, tm);
-      drawSetChair(ctx, 1290 - SET.chairZ * m, ground, m, 1, true);
-      drawSetChair(ctx, 1290 + SET.chairZ * m, ground, m, -1, true);
+      drawSetChair(ctx, 1290 - SET.chairZ * m, ground, m, 1, 'back');
+      drawSetChair(ctx, 1290 + SET.chairZ * m, ground, m, 1, 'back');
       // S & J, arm in arm; a slight nod and settle
       // sized to the rows on screen (a sideways phone trims the height): feet near the bottom, heads clear of the top
       const room = VIEW.bottom - VIEW.top, Y = Math.min(860, VIEW.bottom - 40);

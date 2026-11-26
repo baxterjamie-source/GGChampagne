@@ -75,6 +75,9 @@ const ASSET_FILES = {
   forestNear: 'scenery/forest/forest_near.jpg',
   // bistro set (magenta background)
   chair: 'props/bistro_chair.jpg',
+  chairBack: 'props/bistro_chair_back.jfif',           // straight from behind (from the car, the toast)
+  chairBackSide: 'props/bistro_chair_back_rotated.jfif', // from behind, three-quarter, facing right (side shots)
+  // (props/bistro_chair_front.jfif, straight from the front, is kept for later; not loaded yet)
   table: 'props/bistro_table.jpg',
   // painted scenery for the side-on vineyard drive (shot 0 and friends)
   scSky: 'scenery/shot0/sky.jfif',
@@ -302,6 +305,8 @@ function finishAssets() {
   A.forestFar = makeTileable(keyMagenta(RAW.forestFar));
   A.forestNear = makeTileable(keyMagenta(RAW.forestNear));
   A.chair = trimAlpha(keyMagenta(RAW.chair));
+  A.chairBack = trimAlpha(keyMagenta(RAW.chairBack));
+  A.chairBackSide = trimAlpha(keyMagenta(RAW.chairBackSide));
   A.table = trimAlpha(keyMagenta(RAW.table));
 
   // painted scenery layers

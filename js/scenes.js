@@ -548,8 +548,9 @@ function drawHeadlightGlow(ctx, k, cx = 800, cy = 468) {
 /* ---------- Bistro set (painted props, magenta keyed and trimmed) ----------
    Anchored bottom-centre on the ground. In units of s: a chair is 310 tall, the table with its bottle 500. */
 const CHAIR_H = 310, TABLE_H = 500;
-function drawChair(ctx, x, y, s, flip = 1, tip = 0, back = false) {
-  const img = (back && A.chairBack) || A.chair, h = CHAIR_H, w = img.width * h / img.height;
+// view: 'front3q' (bistro_chair, facing left), 'back' (straight from behind), 'side' (from behind, three-quarter, facing right)
+function drawChair(ctx, x, y, s, flip = 1, tip = 0, view = 'front3q') {
+  const img = (view === 'back' && A.chairBack) || (view === 'side' && A.chairBackSide) || A.chair, h = CHAIR_H, w = img.width * h / img.height;
   ctx.save(); ctx.translate(x, y); ctx.scale(s * flip, s);
   if (tip) { ctx.translate(-w * 0.4, 0); ctx.rotate(-tip); ctx.translate(w * 0.4, 0); }   // tips up on its back foot
   ctx.drawImage(img, -w / 2, -h, w, h);
@@ -618,13 +619,13 @@ function groundShadow(ctx, x, y, rx, a = 0.35) {
    THE VALLEY (+x), backs to the car. The table stands just beyond them at x = 0.75, z = 0. The car
    stops with its front bumper 1.6 m short of the chairs. Real sizes: chair 0.85 m tall, table with
    its bottle 1.15 m. Each view below projects this same layout from its own camera, feet on the ground.
-   (The chair picture is a front three-quarter view facing left: flip -1 faces right. Seen from
-   behind, it uses A.chairBack when that picture exists.) */
+   Chair pictures: from the car and in the toast we're behind the chairs → 'back' (bistro_chair_back);
+   from the side they face right, away from us a little → 'side' (bistro_chair_back_rotated). */
 const SET = { chairZ: 0.4, tableX: 0.75, gap: 1.6, chairM: 0.85, tableM: 1.15 };
-function drawSetChair(ctx, x, y, pxPerM, flip, back, a = 1) {
+function drawSetChair(ctx, x, y, pxPerM, flip, view, a = 1) {
   const s = SET.chairM * pxPerM / CHAIR_H;
   groundShadow(ctx, x, y, 0.36 * pxPerM, 0.4 * a);
-  drawChair(ctx, x, y, s, flip, 0, back);
+  drawChair(ctx, x, y, s, flip, 0, view);
 }
 function drawSetTable(ctx, x, y, pxPerM) {
   groundShadow(ctx, x, y, 0.42 * pxPerM, 0.4);
@@ -637,8 +638,8 @@ function drawSetAhead(ctx, dist, o = {}) {
   const P = d => ({ y: AHEAD.hz + AHEAD.f * AHEAD.camH / d, m: AHEAD.f / d });
   if (o.table !== false) { const t = P(dist + SET.tableX); drawSetTable(ctx, AHEAD.cx, t.y, t.m); }
   const c = P(dist);
-  drawSetChair(ctx, AHEAD.cx - SET.chairZ * c.m, c.y, c.m, 1, true);
-  drawSetChair(ctx, AHEAD.cx + SET.chairZ * c.m, c.y, c.m, -1, true);
+  drawSetChair(ctx, AHEAD.cx - SET.chairZ * c.m, c.y, c.m, 1, 'back');
+  drawSetChair(ctx, AHEAD.cx + SET.chairZ * c.m, c.y, c.m, 1, 'back');
 }
 // From the side (the camera on the car's right; the car faces right, the valley is to the right).
 // carX/ground/carS as passed to drawCarSide. Both chairs face right (+x); the far chair is a touch higher.
@@ -646,9 +647,9 @@ function drawSetSide(ctx, carX, ground, carS = 0.62, o = {}) {
   const m = 183 * carS / 0.62;                              // pixels per metre at the car (wheelbase 2.4 m)
   const bumper = carX + 300 * carS / 0.62, cx = bumper + SET.gap * m;
   const far = o.farAlpha ?? 1;
-  if (far > 0.01) { ctx.save(); ctx.globalAlpha = far; drawSetChair(ctx, cx + 4, ground - 7, m * 0.97, -1, false, far); ctx.restore(); }
+  if (far > 0.01) { ctx.save(); ctx.globalAlpha = far; drawSetChair(ctx, cx + 4, ground - 7, m * 0.97, 1, 'side', far); ctx.restore(); }
   if (o.table !== false) drawSetTable(ctx, cx + SET.tableX * m, ground - 2, m);
-  drawSetChair(ctx, cx - 4, ground + 7, m * 1.03, -1, false);
+  drawSetChair(ctx, cx - 4, ground + 7, m * 1.03, 1, 'side');
   return cx;
 }
 
