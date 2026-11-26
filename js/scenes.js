@@ -551,7 +551,7 @@ function drawHeadlightGlow(ctx, k, cx = 800, cy = 468) {
 const CHAIR_H = 310, TABLE_H = 500;
 // view: 'front3q' (bistro_chair, facing left), 'back' (straight from behind), 'side' (from behind, three-quarter, facing right)
 function drawChair(ctx, x, y, s, flip = 1, tip = 0, view = 'front3q') {
-  const img = (view === 'back' && A.chairBack) || (view === 'side' && A.chairBackSide) || A.chair, h = CHAIR_H, w = img.width * h / img.height;
+  const img = (view === 'back' && A.chairBack) || (view === 'side' && A.chairBackSide) || (view === 'profile-img' && A.chairSide) || A.chair, h = CHAIR_H, w = img.width * h / img.height;
   ctx.save(); ctx.translate(x, y); ctx.scale(s * flip, s);
   if (tip) { ctx.translate(-w * 0.4, 0); ctx.rotate(-tip); ctx.translate(w * 0.4, 0); }   // tips up on its back foot
   ctx.drawImage(img, -w / 2, -h, w, h);
@@ -626,7 +626,41 @@ const SET = { chairZ: 0.4, tableX: 0.75, gap: 1.6, chairM: 0.85, tableM: 1.15 };
 function drawSetChair(ctx, x, y, pxPerM, flip, view, a = 1) {
   const s = SET.chairM * pxPerM / CHAIR_H;
   groundShadow(ctx, x, y, 0.36 * pxPerM, 0.4 * a);
+  if (view === 'profile') return drawChairProfile(ctx, x, y, s);
   drawChair(ctx, x, y, s, flip, 0, view);
+}
+/* STAND-IN until the painted side view (prompt F4, props/bistro_chair_side.png) exists: the same bistro chair
+   drawn in code in pure profile, facing right: backrest on the left, iron legs crossing in an X, honey slats.
+   Bottom-centre anchored, 310 units tall like the painted chairs. */
+function drawChairProfile(ctx, x, y, s) {
+  if (A.chairSide) { drawChair(ctx, x, y, s, 1, 0, 'profile-img'); return; }
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const iron = (pts, w = 7) => {
+    ctx.beginPath(); pts.forEach(([px, py], i) => i ? ctx.lineTo(px, py) : ctx.moveTo(px, py));
+    ctx.strokeStyle = '#151515'; ctx.lineWidth = w; ctx.stroke();
+    ctx.strokeStyle = 'rgba(150,150,150,.35)'; ctx.lineWidth = w * 0.3; ctx.stroke();   // a glint along the iron
+  };
+  iron([[-48, 0], [70, -162]]);                        // back foot up to the front of the seat
+  iron([[62, 0], [-58, -162], [-66, -228], [-80, -306]]);   // front foot up to the back of the seat, on up as the back post
+  iron([[-30, -26], [44, -26]], 5);                   // stretcher between the legs
+  for (const fx of [-48, 62]) { ctx.fillStyle = '#151515'; ctx.beginPath(); ctx.ellipse(fx, -1, 9, 4, 0, 0, Math.PI * 2); ctx.fill(); }
+  const slat = (x0, y0, w, h, rot = 0) => {
+    ctx.save(); ctx.translate(x0, y0); ctx.rotate(rot);
+    const g = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+    g.addColorStop(0, '#e6ad62'); g.addColorStop(0.5, '#c8873f'); g.addColorStop(1, '#93592a');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(-w / 2, -h / 2, w, h, Math.min(w, h) * 0.35); ctx.fill();
+    ctx.strokeStyle = 'rgba(58,36,20,.85)'; ctx.lineWidth = 2.2; ctx.stroke();
+    ctx.restore();
+  };
+  slat(8, -166, 158, 14);                              // the seat, its slats seen edge-on
+  ctx.strokeStyle = 'rgba(58,36,20,.5)'; ctx.lineWidth = 1.4;
+  for (const sx of [-40, -2, 36]) { ctx.beginPath(); ctx.moveTo(sx, -172); ctx.lineTo(sx, -160); ctx.stroke(); }
+  slat(-74, -284, 20, 38, -0.12);                      // the two back slats, nearly edge-on, leaning back a little
+  slat(-68, -236, 20, 38, -0.12);
+  ctx.fillStyle = '#3a2414';                           // rivets
+  for (const [rx, ry] of [[-73, -284], [-67, -236]]) { ctx.beginPath(); ctx.arc(rx, ry, 2.6, 0, Math.PI * 2); ctx.fill(); }
+  ctx.restore();
 }
 function drawSetTable(ctx, x, y, pxPerM) {
   groundShadow(ctx, x, y, 0.42 * pxPerM, 0.4);
@@ -651,9 +685,10 @@ function drawSetSide(ctx, carX, ground, carS = 0.62, o = {}) {
   const bumper = carX + 300 * carS / 0.62, cx = bumper + SET.gap * m;
   const far = o.farAlpha ?? 1;
   // the far chair sits a little to the right and higher (seen past the near one at a slight angle), so the two read as two
-  if (far > 0.01) { ctx.save(); ctx.globalAlpha = far; drawSetChair(ctx, cx + 0.32 * m, ground - 12, m * 0.95, 1, 'side', far); ctx.restore(); }
+  const view = o.view || 'side';                           // 'profile' = true side view (shot 15)
+  if (far > 0.01) { ctx.save(); ctx.globalAlpha = far; drawSetChair(ctx, cx + 0.32 * m, ground - 12, m * 0.95, 1, view, far); ctx.restore(); }
   if (o.table !== false) drawSetTable(ctx, cx + SET.tableX * m + 0.15 * m, ground - 6, m);
-  drawSetChair(ctx, cx - 0.1 * m, ground + 8, m * 1.03, 1, 'side');
+  drawSetChair(ctx, cx - 0.1 * m, ground + 8, m * 1.03, 1, view);
   return cx;
 }
 

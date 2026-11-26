@@ -534,7 +534,7 @@ const SHOTS = [
       const p = t / 4.8, light = U.lerp(0.12, 1.15, U.ease(p));        // from near dark to a clearing sky, not yet full sun
       drawCover(ctx, A.clearing, 1.04 - p * 0.03, 0.4, 0.8);
       drawCarSide(ctx, { x: 560, ground: 838, s: 0.62, scroll: S.scroll, bumpAmt: 0 });
-      drawSetSide(ctx, 560, 838, 0.62);
+      drawSetSide(ctx, 560, 838, 0.62, { view: 'profile' });              // the chairs in true side view, facing the valley
       darken(ctx, U.clamp((1 - light) * 0.75));
       drawRain(ctx, t + S.time, U.clamp(0.4 - p * 0.8));
       // shafts of sunlight from the right
