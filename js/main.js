@@ -185,6 +185,61 @@ function afterPop() {
   startIntro(seen ? SHOTS.length - 1 : 0);
 }
 
+/* ---------- Tweak bar (?tweak): pause / step / jump through the film while we fine-tune it ----------
+   TEMPORARY. To remove: delete this block, the two "Tweak" lines in startIntro, and .tweak in style.css. */
+const Tweak = {
+  on: params.has('tweak'), paused: false, stepBy: 0, bar: null,
+  dt(dt) {                                   // the time to advance this frame, or null to hold the picture
+    if (!this.paused) return dt;
+    if (this.stepBy) { const s = this.stepBy; this.stepBy = 0; return s; }
+    return null;
+  },
+  setPaused(p) {
+    this.paused = p;
+    if (SFX.ctx) p ? SFX.ctx.suspend() : SFX.ctx.resume();
+    if ('speechSynthesis' in window) p ? speechSynthesis.pause() : speechSynthesis.resume();
+    this.update();
+  },
+  jump(i) {
+    i = U.clamp(i, 0, SHOTS.length - 1);
+    SFX.birds(false); if ('speechSynthesis' in window) speechSynthesis.cancel();
+    Intro.menuShown = false; hideMenu(); Intro.running = true;
+    Intro.go(i); this.stepBy = 1 / 30;       // draw its first frame even while paused
+    this.update();
+  },
+  show() {
+    if (this.bar) { this.bar.hidden = false; return; }
+    const b = this.bar = document.createElement('div');
+    b.className = 'tweak';
+    b.innerHTML = '<button data-k="prev" title="Previous shot">⏮</button><button data-k="back" title="Restart this shot">↺</button>' +
+      '<button data-k="play" title="Play / pause (space)">⏸</button><button data-k="step" title="Step 0.1 s">+0.1s</button>' +
+      '<button data-k="next" title="Next shot">⏭</button><span></span>';
+    b.addEventListener('click', e => {
+      const k = e.target.dataset && e.target.dataset.k;
+      if (k === 'play') this.setPaused(!this.paused);
+      else if (k === 'step') { if (!this.paused) this.setPaused(true); this.stepBy = 0.1; }
+      else if (k === 'prev') this.jump(Intro.idx - 1);
+      else if (k === 'next') this.jump(Intro.idx + 1);
+      else if (k === 'back') this.jump(Intro.idx);
+      e.stopPropagation();
+    });
+    addEventListener('keydown', e => {
+      if (e.key === ' ') { e.preventDefault(); this.setPaused(!this.paused); }
+      else if (e.key === 'ArrowRight') { if (!this.paused) this.setPaused(true); this.stepBy = 0.1; }
+      else if (e.key === 'ArrowUp' || e.key === 'PageDown') this.jump(Intro.idx + 1);
+      else if (e.key === 'ArrowDown' || e.key === 'PageUp') this.jump(Intro.idx - 1);
+    });
+    document.body.append(b);
+    setInterval(() => this.update(), 100);
+  },
+  update() {
+    if (!this.bar) return;
+    this.bar.querySelector('[data-k="play"]').textContent = this.paused ? '▶' : '⏸';
+    const sh = SHOTS[Intro.idx] || {};
+    this.bar.querySelector('span').textContent = `Shot ${Intro.idx} · ${sh.name || ''} · ${(Intro.t || 0).toFixed(1)} s / ${sh.dur || 0}`;
+  },
+};
+
 /* ---------- Intro ---------- */
 function startIntro(from = 0) {
   stage.classList.add('on', 'solid');
@@ -192,8 +247,10 @@ function startIntro(from = 0) {
   Intro.start(sctx, { from, onMenu: showMenu });
   $('#skip').hidden = from >= SHOTS.length - 1;
   resize();
+  if (Tweak.on) Tweak.show();
   mode = {
     frame(dt) {
+      if (Tweak.on) { dt = Tweak.dt(dt); if (dt === null) return; }   // paused: keep the frame on screen
       // Fill the screen. Wider than 16:9 (a phone held sideways, even with the browser bar showing,
       // up to ~2.6:1): always fill the width and trim the spare height. Narrower (tablets): scale up
       // past "fit" by at most 25%. The trim happens where each shot can lose it: shot.fy is
