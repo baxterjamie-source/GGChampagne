@@ -685,7 +685,7 @@ function drawSetSide(ctx, carX, ground, carS = 0.62, o = {}) {
   const bumper = carX + 300 * carS / 0.62, cx = bumper + SET.gap * m;
   const far = o.farAlpha ?? 1;
   // the far chair sits a little to the right and higher (seen past the near one at a slight angle), so the two read as two
-  const view = o.view || 'side';                           // 'profile' = true side view (shot 15)
+  const view = o.view || 'side';                           // 'profile' = true side view (shot 14)
   // (side by side across our view, so nearly the same place: just a small step right and up for the far one)
   if (far > 0.01) { ctx.save(); ctx.globalAlpha = far; drawSetChair(ctx, cx + 0.14 * m, ground - 4, m * 0.985, 1, view, far); ctx.restore(); }
   if (o.table !== false) drawSetTable(ctx, cx + SET.tableX * m + 0.15 * m, ground - 2, m);

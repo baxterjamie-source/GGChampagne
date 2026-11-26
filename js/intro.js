@@ -4,9 +4,11 @@
 function once(L, key, cond, fn) { if (cond && !L.fired[key]) { L.fired[key] = 1; fn(); } }
 
 /* ---------- The fork in the road (painted), the car from behind heading up the right branch ---------- */
-/* The centre of the right-hand track in the fork painting (frame units at zoom 1), and the car's
-   size there (it shrinks with distance). Measured from fwd_fork. */
-const FORK_PATH = [[965, 990, 0.36], [1040, 720, 0.25], [1115, 600, 0.18], [1172, 500, 0.13], [1215, 405, 0.088], [1250, 335, 0.058]];
+/* The centre line between the two ruts of the right-hand track in the fork painting (frame units at
+   zoom 1), and the car's size there (it shrinks with distance). Traced from fwd_fork by drawing where
+   the two rear wheels run (centre ± 290 x size) and fitting those lines into the ruts. */
+const FORK_PATH = [[1110, 990, 0.36], [1100, 800, 0.28], [1130, 700, 0.24], [1150, 620, 0.19], [1180, 570, 0.165],
+  [1215, 525, 0.143], [1235, 500, 0.13], [1250, 450, 0.108], [1262, 400, 0.088], [1280, 335, 0.058]];
 function forkPoint(p) {                          // p 0..1 along the track by distance
   const P = FORK_PATH, len = [0];
   for (let i = 1; i < P.length; i++) len.push(len[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
@@ -15,41 +17,67 @@ function forkPoint(p) {                          // p 0..1 along the track by di
   const k = (d - len[i - 1]) / (len[i] - len[i - 1]), a = P[i - 1], b = P[i];
   return { x: U.lerp(a[0], b[0], k), y: U.lerp(a[1], b[1], k), s: U.lerp(a[2], b[2], k), ang: Math.atan2(b[1] - a[1], b[0] - a[0]) };
 }
-/* The car fishtails up the track: quick cuts between the square-on rear view (Cit-back) and the
-   angled one (cit_back_turn_right2), the tail swinging out each time, mud flung off the rear wheels.
-   Each picture is anchored where its wheels meet the ground, so it sits in the ruts.
-   Per view: image, anchor (x, y of the wheels on the ground), size factor, tail lights, rear wheels. */
+/* The car going up the track, seen from behind. It wobbles up the straight in the ruts (the square-on
+   picture, slid and turned a little in code). Just before the bend, shot 7 cuts to their worried faces;
+   while we're on the faces the picture changes to the right-turned one, so when we cut back the car is
+   already in the bend, with no fade.
+   Per picture, in its own pixels (1152x864): f (front-axle midpoint on the ground: the wobble pivots
+   there, so the front stays in the ruts and only the tail moves), k (size: the angled picture comes
+   out a little smaller), tail lights, rear tyres (where the mud comes off). */
 const FORK_VIEWS = {
-  straight: { img: 'carBack', ax: 576, ay: 805, k: 1, lights: [[-210, -130], [214, -130]], wheels: [[-280, -20], [280, -20]], rot: -0.035, dx: -10 },
-  angled: { img: 'carBackTurn', ax: 600, ay: 790, k: 1.22, lights: [[-472, -210], [-192, -180]], wheels: [[-390, -60], [30, 0]], rot: 0.03, dx: 12 },
+  straight: { img: 'carBack', f: [572, 765], k: 1, lights: [[364, 670], [785, 670]], wheels: [[285, 790], [860, 790]] },
+  right: { img: 'carBackRight', f: [760, 668], k: 1.2, lights: [[184, 641], [501, 655]], wheels: [[230, 770], [690, 805]] },
 };
-function drawFork(ctx, t, light, carP, S, L, dt = 1 / 60) {
-  // a very slow push in; the car is drawn inside the same transform so it stays in the ruts
-  const z = 1 + t * 0.006;
-  ctx.save(); ctx.translate(800, 450); ctx.scale(z, z); ctx.translate(-800, -450);
-  drawCover(ctx, A.fwdFork, 1.0, 0.5, 0.5);
-  const q = forkPoint(carP);
-  // the fishtail: a cut every ~0.3 s, a little irregular, swinging between the two views
-  const beat = Math.floor(t / 0.3 + Math.sin(t * 1.3) * 0.4), V = FORK_VIEWS[beat % 2 ? 'angled' : 'straight'];
-  if (L && L.beat !== beat) { L.beat = beat; L.kick = 1; }
-  const s = q.s * V.k, x = q.x + V.dx * s * 3, y = q.y;
-  groundShadow(ctx, x + (V === FORK_VIEWS.angled ? 60 * s : 0), y, 380 * s * V.k, 0.55);
-  // mud off the rear wheels: a burst at each swing, a steady spray in between
-  if (S) {
-    const burst = L && L.kick ? 10 : (Math.random() < 0.5 ? 1 : 0); if (L) L.kick = 0;
-    for (const [wx, wy] of V.wheels) for (let i = 0; i < burst; i++)
-      S.mud.add(x + wx * s, y + wy * s, (wx < 0 ? -1 : 1) * (60 + Math.random() * 260) * s * 3, (-200 - Math.random() * 380) * s * 3, (2 + Math.random() * 5) * s * 3, '#4a3220', 0.7);
-    S.mud.update(dt); S.mud.draw(ctx);
-  }
-  ctx.save(); ctx.translate(x, y + Math.sin(t * 18) * 1.5 * s); ctx.rotate(V.rot + Math.sin(t * 7) * 0.01); ctx.scale(s, s);
-  ctx.drawImage(A[V.img], -V.ax, -V.ay);
+/* We're on the faces while the car's track point goes from y 655 to 585 (about 0.75 s, just before
+   the bend), and the picture changes to the turned one at y 615, while nobody can see it. */
+const FORK_CUT = [655, 585];
+/* The wobble at time t: how far the nose is turned, -1 (fully left) to 1 (fully right). */
+function forkYaw(t) { return Math.sin(t * 2.4) * 0.2 * U.seg(t, 0, 0.6); }
+/* One picture of the car, pinned at its front axle (fx, fy). */
+function drawForkCar(ctx, V, fx, fy, s0, shift, rot, sx) {
+  const s = s0 * V.k;
+  ctx.save();
+  ctx.translate(fx + shift, fy); ctx.rotate(rot); ctx.scale(s * sx, s);
+  ctx.drawImage(A[V.img], -V.f[0], -V.f[1]);
   ctx.globalCompositeOperation = 'lighter';
-  for (const [lx, ly] of V.lights) {                                   // a soft glow round the rear lights
+  for (const [lx0, ly0] of V.lights) {                                 // a soft glow round the rear lights
+    const lx = lx0 - V.f[0], ly = ly0 - V.f[1];
     const g = ctx.createRadialGradient(lx, ly, 4, lx, ly, 80);
     g.addColorStop(0, 'rgba(255,60,40,.6)'); g.addColorStop(1, 'rgba(255,60,40,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(lx, ly, 80, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
+}
+function drawFork(ctx, t, light, carP, S, L, dt = 1 / 60) {
+  // a very slow push in; the car is drawn inside the same transform so it stays in the ruts
+  const z = 1 + t * 0.006;
+  ctx.save(); ctx.translate(800, 450); ctx.scale(z, z); ctx.translate(-800, -450);
+  drawCover(ctx, A.fwdFork, 1.0, 0.5, 0.5);
+  const q = forkPoint(carP), yaw = forkYaw(t);
+  const turned = q.y < FORK_CUT[1] + 30;            // past the switch (made while we're on the faces)
+  // the front axle on the track (it sits 40 px above the track point in the square-on picture,
+  // which is where that picture was tuned to sit in the ruts), with a little bounce
+  const fx = q.x - 4 * q.s, fy = q.y - 40 * q.s + Math.sin(t * 18) * 1.5 * q.s, wob = Math.sin(t * 7) * 0.008;
+  let V, shift, rot, sx;
+  if (!turned) {
+    // the square-on picture faking the wobble: tail slid the other way, a slight turn and squash
+    V = FORK_VIEWS.straight; shift = -yaw * 130 * q.s; rot = yaw * 0.035 + wob; sx = 1 - 0.05 * Math.abs(yaw);
+  } else {
+    // turning, not sliding, so the turned picture sits centred on the track (midway between its axles)
+    V = FORK_VIEWS.right; rot = 0.01 + wob; sx = 1;
+    shift = (V.f[0] - (V.f[0] + (V.wheels[0][0] + V.wheels[1][0]) / 2) / 2) * V.k * q.s;
+  }
+  groundShadow(ctx, fx + shift, q.y + 5 * q.s, 380 * q.s, 0.55);
+  // a spray of mud off the rear wheels, outwards from each tyre
+  if (S) {
+    const s = q.s * V.k, midX = (V.wheels[0][0] + V.wheels[1][0]) / 2;
+    if (Math.random() < 0.35) for (const [px, py] of V.wheels) {
+      const wx = fx + shift + (px - V.f[0]) * s, wy = fy + (py - V.f[1]) * s, out = px < midX ? -1 : 1;
+      S.mud.add(wx, wy - 15 * s, out * (60 + Math.random() * 260) * s * 3, (-200 - Math.random() * 380) * s * 3, (2 + Math.random() * 5) * s * 3, '#4a3220', 0.7);
+    }
+    S.mud.update(dt); S.mud.draw(ctx);
+  }
+  drawForkCar(ctx, V, fx, fy, q.s, shift, rot, sx);
   ctx.restore();
   darken(ctx, U.clamp((1 - light) * 0.62));
   nightShade(ctx, light, 0.85);
@@ -320,6 +348,32 @@ function chatPoses(t) {
   const cur = A[steps[i][1]], prev = i > 0 ? A[steps[i - 1][1]] : null, k = i > 0 ? U.clamp((t - steps[i][0]) / fade) : 1;
   return prev && k < 1 ? [[prev, 1], [cur, U.ease(k)]] : [[cur, 1]];
 }
+/* A speech bubble whose tail points at (x, y), the speaker's head; the bubble sits above and to the
+   left. lines: the text, already broken into lines. k: 0..1 appearance (pops in, fades out). */
+function drawSpeechBubble(ctx, x, y, lines, k, minX = 14) {
+  if (k <= 0) return;
+  const size = 28, lh = size * 1.3, pad = 20;
+  ctx.save();
+  ctx.font = `italic 600 ${size}px "Playfair Display", Georgia, serif`;
+  const w = Math.max(...lines.map(l => ctx.measureText(l).width)) + pad * 2, h = lines.length * lh + pad * 1.4;
+  // bubble's top-left: low enough to survive the top being trimmed on wide phones, and kept on
+  // screen at the left as she drifts off (the tail still reaches her)
+  const bx = Math.min(Math.max(x - w * 0.7, minX), x - 44), by = y - 30 - h;
+  const pop = 0.6 + 0.4 * U.easeOut(U.clamp(k * 1.6));             // a little pop as it appears
+  ctx.globalAlpha = U.clamp(k * 3);
+  ctx.translate(x, y); ctx.scale(pop, pop); ctx.translate(-x, -y);
+  ctx.beginPath();
+  ctx.roundRect(bx, by, w, h, 26);
+  ctx.moveTo(x - 34, by + h - 1); ctx.lineTo(x - 4, y - 6); ctx.lineTo(x - 8, by + h - 1);   // the tail, down to her head
+  ctx.fillStyle = PAL.cream; ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 4;
+  ctx.fill();
+  ctx.shadowColor = 'transparent'; ctx.lineWidth = 3; ctx.strokeStyle = '#3a2a1c'; ctx.stroke();
+  ctx.fillStyle = '#2a1d12'; ctx.textBaseline = 'middle';
+  lines.forEach((l, i) => ctx.fillText(l, bx + pad, by + pad * 0.7 + lh * (i + 0.5)));
+  ctx.restore();
+}
+const CHAT_BUBBLE = ['Bienvenue en Champagne !', 'Profitez bien de votre voyage', 'et joyeux anniversaire !'];
+
 /* The local woman, seen from behind, feet at (x, y). h = drawn height of the whole picture. */
 function drawWoman(ctx, x, y, h, waving, t) {
   const img = waving ? A.womanWave : A.woman, w = img.width * h / img.height;
@@ -328,6 +382,10 @@ function drawWoman(ctx, x, y, h, waving, t) {
   ctx.drawImage(img, -w / 2, -h * 0.94, w, h);                                // boots end at ~94% of the picture
   ctx.restore();
 }
+
+/* Shot 7: the cut-away to the two of them through the windscreen, worried, bumping up the hill. */
+const FORK_FACES = frontCloseShot({ dur: 0.85, img: 'carFront', light: 0.22, rain: 0.85, shake: () => 5, zoom: p => U.lerp(2.2, 2.35, p),
+  lurch: t => Math.sin(t * 6) * 0.025 });
 
 const SHOTS = [
   { // 0. Sunshine. Wide, then a 2 s zoom in: the 2CV stopped on the lane, S leaning out of her window,
@@ -349,6 +407,9 @@ const SHOTS = [
       drawCarSide(ctx, { x: 720, ground: 868, s: 0.62, scroll: S.scroll, bob: idle + Math.sin(t * 23) * 2.5 * U.clamp(speed / 400), bumpAmt: U.clamp(speed / 300), poses: chatPoses(t) });
       const wx = 540 - (S.scroll - L.w0);                               // she stays put as the car drives off
       if (wx > -250) drawWoman(ctx, wx, 894, 366, t > 2.1, t);
+      // what she says, in French only: up as she starts speaking, gone once the line is done (~5 s)
+      // (minX: the frame's left edge plus a margin, in the zoomed coordinates)
+      drawSpeechBubble(ctx, wx + 10, 894 - 366 * 0.86, CHAT_BUBBLE, U.seg(t, 2.2, 2.6) * (1 - U.seg(t, 7.0, 7.4)), fx - (fx - 14) / zoom);
       ctx.restore();
       sunshine(ctx, 0.6);
     },
@@ -444,8 +505,14 @@ const SHOTS = [
     enter: S => { SFX.setEngine(0.8, 0.9); },
     draw: (ctx, t, dt, S, L) => {
       // unhurried: easing off as it climbs, and only about three-quarters of the way up the track by the cut
-      const u = U.clamp(t / 5);
-      drawFork(ctx, t, U.lerp(0.2, 0.14, u), 0.74 * (1 - Math.pow(1 - u, 1.8)), S, L, dt);
+      const u = U.clamp(t / 5), carP = 0.74 * (1 - Math.pow(1 - u, 1.8));
+      const y = forkPoint(carP).y;
+      if (y < FORK_CUT[0] && y > FORK_CUT[1]) {      // the quick cut to their faces, hiding the turn
+        if (L.cut0 == null) L.cut0 = t;
+        FORK_FACES(ctx, t - L.cut0, dt, S, L);
+        return;
+      }
+      drawFork(ctx, t, U.lerp(0.2, 0.14, u), carP, S, L, dt);
       drawRain(ctx, t + S.time, 0.85);
     },
   },
@@ -511,28 +578,18 @@ const SHOTS = [
       drawRain(ctx, t + S.time, 0.6);
     },
   },
-  { // 13. Inside: the wipers clear and there's the table, a bottle of Veuve and two flutes
-    name: 'inside-table', dur: 4.2,
-    enter: S => { SFX.setEngine(0, 0.5); SFX.setRain(0.4); },
-    draw: insideShot({
-      // still night outside (the valley and the side windows stay black), but the whole set now stands in the headlights
-      dur: 4.2, speed: 0, cabin: 'inSunny', light: p => U.lerp(0.04, 0.1, p), rain: p => U.lerp(0.5, 0.25, p), hazeMax: 0.7, refill: 0.5,
-      outside: (ctx, t, dt, S, L, light) => {
-        drawForwardImg(ctx, A.fwdClearing, { zoom: 1.2, fy: 0.5, light, dark: 0.95, lights: 1, propsBright: U.lerp(0.6, 0.85, U.clamp(t / 2.5)),
-          glowY: setAheadFeetY(SET_STOP), props: c => drawSetAhead(c, SET_STOP) });
-      },
-    }),
-  },
-  { // 14. Smiles
+  // (From here on the car has stopped: no more bouncing.)
+  { // 13. Smiles
     name: 'faces-smile', dur: 3,
-    draw: frontCloseShot({ dur: 3, img: 'frontSmile', bg: 'forest', light: 0.32, rain: 0.25, zoom: p => U.lerp(2.0, 2.1, p), bob: 0.4 }),
+    enter: S => { SFX.setEngine(0, 0.5); SFX.setRain(0.4); },
+    draw: frontCloseShot({ dur: 3, img: 'frontSmile', bg: 'forest', light: 0.32, rain: 0.25, zoom: () => 2.05, bob: 0 }),   // static
   },
-  { // 15. Side: forest to the left, a vast open space to the right; it brightens; birdsong
+  { // 14. Side: forest to the left, a vast open space to the right; it brightens; birdsong
     name: 'side-open', fy: 0.95, dur: 4.8,
     enter: S => { SFX.setRain(0.05); setTimeout(() => SFX.birds(true), 1500); },
     draw: (ctx, t, dt, S, L) => {
       const p = t / 4.8, light = U.lerp(0.12, 1.15, U.ease(p));        // from near dark to a clearing sky, not yet full sun
-      drawCover(ctx, A.clearing, 1.04 - p * 0.03, 0.4, 0.8);
+      drawCover(ctx, A.clearing, 1.025, 0.4, 0.8);                      // static: no slow zoom
       drawCarSide(ctx, { x: 560, ground: 838, s: 0.62, scroll: S.scroll, bumpAmt: 0 });
       drawSetSide(ctx, 560, 838, 0.62, { view: 'profile' });              // the chairs in true side view, facing the valley
       darken(ctx, U.clamp((1 - light) * 0.75));
@@ -544,11 +601,11 @@ const SHOTS = [
       ctx.fillStyle = sg; ctx.fillRect(0, 0, W, H); ctx.restore();
     },
   },
-  { // 16. Amazed, in awe, warm sunshine on their faces
+  { // 15. Amazed, in awe, warm sunshine on their faces
     name: 'faces-awe', dur: 3,
-    draw: frontCloseShot({ dur: 3, img: 'frontAwe', bg: 'sunlit', light: 1.55, rain: 0, zoom: p => U.lerp(2.0, 2.12, p), bob: 0.3 }),
+    draw: frontCloseShot({ dur: 3, img: 'frontAwe', bg: 'sunlit', light: 1.55, rain: 0, zoom: () => 2.06, bob: 0 }),   // static
   },
-  { // 17. Inside: the champagne landscape, a muddy grass track, a church… and a rainbow
+  { // 16. Inside: the champagne landscape, a muddy grass track, a church… and a rainbow
     name: 'inside-landscape', dur: 5,
     enter: S => { SFX.setRain(0); SFX.sparkle(); },
     draw: insideShot({
@@ -563,7 +620,7 @@ const SHOTS = [
       },
     }),
   },
-  { // 18. Dolly forward through the windscreen; the title in the sky; the "!" bottle pops
+  { // 17. Dolly forward through the windscreen; the title in the sky; the "!" bottle pops
     name: 'dolly-title', fy: t => U.lerp(0.5, 0.2, U.ease(U.clamp(t / 2.6))), dur: 9,
     enter: (S, L) => { L.title = layoutTitle(S.ctx); },
     draw: (ctx, t, dt, S, L) => {
@@ -604,7 +661,7 @@ const SHOTS = [
       drawRisingBubbles(ctx, t, 30, U.clamp((t - 2) / 2));
     },
   },
-  { // 19. The couple, cheers! Then the menu appears.
+  { // 18. The couple, cheers! Then the menu appears.
     name: 'toast', fy: 0.95, dur: 5.5, hold: true,
     enter: S => { setTimeout(() => SFX.clink(), 1900); },
     draw: (ctx, t, dt, S, L) => {
