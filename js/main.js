@@ -269,6 +269,20 @@ $('#menu').addEventListener('click', e => {
   }
   setupBottle();
   resize();
+  if (params.has('debug')) {            // dev: screen-size readout, e.g. ?shot=1&mute&debug
+    const box = document.createElement('div'), probe = document.createElement('div');
+    box.style.cssText = 'position:fixed;left:50%;top:40%;transform:translateX(-50%);z-index:99;background:rgba(0,0,0,.8);color:#ff0;font:14px/1.4 monospace;padding:8px 12px;border:2px solid #ff0;white-space:pre';
+    probe.style.cssText = 'position:fixed;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
+    document.body.append(box, probe);
+    const tick = () => {
+      const p = getComputedStyle(probe), vv = window.visualViewport, r = stage.getBoundingClientRect();
+      box.textContent = `window ${innerWidth}x${innerHeight}  visual ${vv ? Math.round(vv.width) + 'x' + Math.round(vv.height) : '-'}\n` +
+        `canvas css ${Math.round(r.width)}x${Math.round(r.height)} at ${Math.round(r.left)},${Math.round(r.top)}  px ${stage.width}x${stage.height}  dpr ${devicePixelRatio}\n` +
+        `screen ${screen.width}x${screen.height}  safe T${p.paddingTop} R${p.paddingRight} B${p.paddingBottom} L${p.paddingLeft}\n` +
+        `view rows ${Math.round(VIEW.top)}-${Math.round(VIEW.bottom)}  ${navigator.userAgent.match(/(iPhone|Android|CriOS|FxiOS|Version\/[\d.]+|Chrome\/\d+)/g)?.join(' ') || ''}`;
+    };
+    tick(); setInterval(tick, 1000);
+  }
   if (params.has('lesson')) {           // dev: open a lesson straight away, e.g. ?lesson=0 (&tab=sayit)
     show(null); SFX.init();
     Lessons.open(Lessons.byWeek(+params.get('lesson') || 0), { tab: params.get('tab') || 'lesson' });
