@@ -288,9 +288,14 @@ function drawCarSide(ctx, o) {
     ctx.restore();
   });
   ctx.save(); carTransform(ctx, o);
-  const wor = o.worried || 0;                       // 0 = happy faces, 1 = worried faces (crossfade)
-  if (wor < 1) ctx.drawImage(A.carBody, 0, 0);
-  if (wor > 0) { ctx.globalAlpha = wor; ctx.drawImage(A.carBodyWorried, 0, 0); ctx.globalAlpha = 1; }
+  if (o.poses) {                                    // [[body, alpha], ...] drawn in order: a crossfade between poses
+    for (const [img, a] of o.poses) if (a > 0.001) { ctx.globalAlpha = Math.min(1, a); ctx.drawImage(img, 0, 0); }
+    ctx.globalAlpha = 1;
+  } else {
+    const wor = o.worried || 0;                     // 0 = happy faces, 1 = worried faces (crossfade)
+    if (wor < 1) ctx.drawImage(A.carBody, 0, 0);
+    if (wor > 0) { ctx.globalAlpha = wor; ctx.drawImage(A.carBodyWorried, 0, 0); ctx.globalAlpha = 1; }
+  }
   ctx.restore();
   ctx.restore();
   if (o.lights) drawCarLights(ctx, o);

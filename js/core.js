@@ -45,6 +45,12 @@ const ASSET_FILES = {
   scVinesFwd: 'scenery/shot0/vineyard_hills.jfif',   // looking down the rows: used behind the front-on car
   back: 'SandJ/Cit-back.jpg',
   cheers: 'SandJ/S-J_cheers.jfif',
+  // Batch 2: the roadside chat (same framing as Cit-side.jpg)
+  sideChat: 'SandJ/Cit-S-window-chat.jfif',
+  sideFwd: 'SandJ/Cit-S-window-chat_forward.jpg',
+  sideWave: 'SandJ/Cit-side-wave.jpg',
+  woman: 'SandJ/local_woman_back.jfif',
+  womanWave: 'SandJ/local_woman_back_wave.jfif',
   // the car from the front, different moods (green screen, same framing as cit_worried_front)
   frontShock: 'SandJ/cit_front_both_shocked.jpg',
   frontSmile: 'SandJ/Cit_front_both_amazed.jpg',
@@ -73,6 +79,10 @@ const ASSET_FILES = {
   scRoadside: 'scenery/shot0/roadside.jfif',
   scRoad: 'scenery/shot0/road.jfif',
   scTree: 'scenery/shot0/tree_1.jfif',
+};
+/* Recorded sounds (in sounds/). sync_assets.ps1 reads this list too: keep one 'key: file' per line. */
+const SOUND_FILES = {
+  idle: 'car-tractor-idling.mp3',
 };
 const RAW = {};   // HTMLImageElements
 const A = {};     // processed canvases
@@ -242,6 +252,10 @@ function processAssets() {
   const parts = carParts(keyGreen(RAW.side));
   A.carBody = parts.body; A.carWheels = parts.wheels;
   A.carBodyWorried = carParts(keyGreen(RAW.sideWorried)).body;   // same car, worried faces
+  A.carChat = carParts(keyGreen(RAW.sideChat)).body;              // S leaning out of her window
+  A.carFwd = carParts(keyGreen(RAW.sideFwd)).body;                // ...still leaning, looking ahead
+  A.carWave = carParts(keyGreen(RAW.sideWave)).body;              // S waving
+  A.woman = keyGreen(RAW.woman); A.womanWave = keyGreen(RAW.womanWave);
   A.carFront = keyGreen(RAW.frontWorried);
   A.scVinesFwd = keyMagenta(RAW.scVinesFwd);
   finishAssets();
@@ -466,8 +480,40 @@ const SFX = {
       this.chain(o, g); o.start(this.t + i * 0.07); o.stop(this.t + i * 0.07 + 0.6);
     }
   },
+  // One short burst of birdsong (1–3 chirps).
+  birdPhrase() {
+    if (!this.ctx) return;
+    const n = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) this.chirp(i * (0.5 + Math.random() * 0.6));
+  },
+  /* Recorded loops (SOUND_FILES): loop('idle', 0.3, 1) fades in; stopLoop('idle', 2) fades out. */
+  samples: {}, loops: {},
+  async sample(key) {
+    if (!this.samples[key]) this.samples[key] = fetch(assetUrl('sounds/' + SOUND_FILES[key]))
+      .then(r => r.arrayBuffer()).then(b => this.ctx.decodeAudioData(b));
+    return this.samples[key];
+  },
+  async loop(key, vol = 0.3, fade = 1) {
+    if (!this.ctx || this.loops[key]) return;
+    const g = this.ctx.createGain(); g.gain.value = 0.0001; g.connect(this.master);
+    this.loops[key] = { g, src: null };
+    const buf = await this.sample(key);
+    const l = this.loops[key];
+    if (!l || l.g !== g) return;                     // stopped while loading
+    const src = this.ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+    src.connect(g); src.start(); l.src = src;
+    g.gain.setTargetAtTime(vol, this.t, fade / 3);
+  },
+  stopLoop(key, fade = 1) {
+    const l = this.loops[key];
+    if (!l) return;
+    delete this.loops[key];
+    l.g.gain.setTargetAtTime(0.0001, this.t, fade / 3);
+    setTimeout(() => { try { l.src && l.src.stop(); } catch { } l.g.disconnect(); }, fade * 1000 + 200);
+  },
   stopAll() {
     if (!this.ctx) return;
     this.setRain(0); this.setEngine(0); this.birds(false);
+    Object.keys(this.loops).forEach(k => this.stopLoop(k, 0.3));
   },
 };

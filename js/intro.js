@@ -256,7 +256,50 @@ function frontCloseShot(o) {
 function flash(L, t) { L.flash = t; L.flashSeed = Math.random() * 100; }
 function thunderAfter(sec, power = 1) { setTimeout(() => SFX.thunder(power), sec * 1000); }
 
+/* ---------- Batch 2: the roadside chat ---------- */
+const CHAT_LINE = 'Bienvenue en Champagne ! Profitez bien de votre voyage et joyeux anniversaire !';
+// S: leaning out chatting → looks ahead → waves goodbye → settles back (Cit-side, where shot 1 picks up)
+function chatPoses(t) {
+  const steps = [[0, 'carChat'], [3.0, 'carFwd'], [4.7, 'carWave'], [8.3, 'carBody']], fade = 0.6;
+  let i = 0;
+  while (i < steps.length - 1 && t >= steps[i + 1][0]) i++;
+  const cur = A[steps[i][1]], prev = i > 0 ? A[steps[i - 1][1]] : null, k = i > 0 ? U.clamp((t - steps[i][0]) / fade) : 1;
+  return prev && k < 1 ? [[prev, 1], [cur, U.ease(k)]] : [[cur, 1]];
+}
+/* The local woman, seen from behind, feet at (x, y). h = drawn height of the whole picture. */
+function drawWoman(ctx, x, y, h, waving, t) {
+  const img = waving ? A.womanWave : A.woman, w = img.width * h / img.height;
+  const sway = waving ? Math.sin(t * 7) * 0.025 : Math.sin(t * 1.6) * 0.008;   // a lively wave, or a gentle shift of weight
+  ctx.save(); ctx.translate(x, y); ctx.rotate(sway);
+  ctx.drawImage(img, -w / 2, -h * 0.94, w, h);                                // boots end at ~94% of the picture
+  ctx.restore();
+}
+
 const SHOTS = [
+  { // 0. Sunshine. Wide, then a 2 s zoom in: the 2CV stopped on the lane, S leaning out of her window,
+    // a local woman beside the car. She waves them off in French as they pull slowly away; S sits up and waves.
+    name: 'roadside-chat', dur: 10,
+    enter: (S, L) => { L.w0 = S.scroll; SFX.setRain(0); SFX.setEngine(0.0001, 0.6); SFX.loop('idle', 0.22, 1.5); },
+    draw: (ctx, t, dt, S, L) => {
+      once(L, 'bird1', t > 1.6, () => SFX.birdPhrase());
+      once(L, 'say', t > 2.2, () => Lessons.say(CHAT_LINE, 0.95));
+      once(L, 'go', t > 4.0, () => SFX.stopLoop('idle', 3));
+      once(L, 'bird2', t > 6.6, () => SFX.birdPhrase());
+      const speed = 520 * U.ease(U.seg(t, 4.0, 9.6));
+      S.scroll += speed * dt;
+      const zoom = 1 + 0.38 * (U.ease(U.seg(t, 0, 2)) - U.ease(U.seg(t, 6.0, 9.4))), fx = 700, fy = 900;
+      ctx.save();
+      ctx.translate(fx, fy); ctx.scale(zoom, zoom); ctx.translate(-fx, -fy);
+      drawSideWorld(ctx, { scroll: S.scroll, light: 1.6, mode: 'vines', t: S.time, rain: 0 });
+      const idle = speed < 1 ? Math.sin(t * 38) * 0.9 : 0;            // the engine ticking over
+      drawCarSide(ctx, { x: 720, ground: 868, s: 0.62, scroll: S.scroll, bob: idle + Math.sin(t * 23) * 2.5 * U.clamp(speed / 400), bumpAmt: U.clamp(speed / 300), poses: chatPoses(t) });
+      const wx = 540 - (S.scroll - L.w0);                               // she stays put as the car drives off
+      if (wx > -250) drawWoman(ctx, wx, 894, 366, t > 2.1, t);
+      ctx.restore();
+      sunshine(ctx, 0.6);
+    },
+    tick: t => { if (t > 4) SFX.setEngine(U.lerp(0.35, 1, U.seg(t, 4, 9.6)), U.lerp(0.7, 1, U.seg(t, 4, 9.6))); },
+  },
   { // 1. Driving through the vineyards at dusk; the rain starts
     name: 'vines-sun-to-rain', dur: 8,
     enter: S => { SFX.setEngine(1, 1); SFX.setRain(0.15); },

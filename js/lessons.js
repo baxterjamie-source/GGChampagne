@@ -30,14 +30,14 @@ const Lessons = (() => {
         + (/google|amélie|amelie|audrey|aurélie|thomas|marie|denise/i.test(v.name) ? 4 : 0);
       this.v = vs.sort((a, b) => score(b) - score(a))[0] || null;
     },
-    say(text, btn) {
+    say(text, btn, rate = 0.85) {
       if (btn) { btn.classList.remove('pulse'); void btn.offsetWidth; btn.classList.add('pulse'); }
       if (SFX.muted || !this.ok) return;
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text.replace(/…/g, ''));
       if (!this.v) this.pick();
       if (this.v) u.voice = this.v;
-      u.lang = 'fr-FR'; u.rate = 0.85;
+      u.lang = 'fr-FR'; u.rate = rate;
       u.onstart = () => Music.duck(true);
       u.onend = u.onerror = () => Music.duck(false);
       speechSynthesis.speak(u);
@@ -464,5 +464,6 @@ const Lessons = (() => {
     return `Leçon ${l.week}${n ? ` · ${n} à dire` : ''}`;
   }
 
-  return { open, close, openFromMenu, menuLabel, byWeek: w => LESSONS.find(l => l.week === w), _music: Music };
+  return { open, close, openFromMenu, menuLabel, byWeek: w => LESSONS.find(l => l.week === w), _music: Music,
+    say: (text, rate) => Voice.say(text, null, rate) };   // the French voice, also used by the opening film
 })();
