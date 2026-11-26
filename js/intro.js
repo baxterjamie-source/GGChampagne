@@ -622,7 +622,8 @@ const SHOTS = [
       // stands there, a step behind them, feet on that grass; drawn a little under true scale so it stays modest)
       // nearer the camera than the couple: bigger, its feet below the bottom edge and partly cut off at the right,
       // like something in the foreground
-      const m = h * 0.7, cx = 1330, gy = VIEW.bottom + h * 0.1;
+      // (user: same place across the frame, 15% smaller, dropped by a quarter of its height)
+      const m = h * 0.595, cx = 1330, gy = VIEW.bottom + h * 0.16;
       drawSetTable(ctx, cx, gy - 0.12 * m, m * 0.9);                         // 0.75 m further: a touch higher, smaller
       drawSetChair(ctx, cx - SET.chairZ * m * 1.15, gy, m, 1, 'back');
       drawSetChair(ctx, cx + SET.chairZ * m * 1.15, gy, m, 1, 'back');
