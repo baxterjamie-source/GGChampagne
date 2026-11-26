@@ -4,14 +4,26 @@
 function once(L, key, cond, fn) { if (cond && !L.fired[key]) { L.fired[key] = 1; fn(); } }
 
 /* ---------- The fork in the road (painted), the car from behind heading up the right branch ---------- */
+/* The centre of the right-hand track in the fork painting (frame units at zoom 1), and the car's
+   size there (it shrinks with distance). Measured from fwd_fork. */
+const FORK_PATH = [[965, 990, 0.36], [1040, 720, 0.25], [1115, 600, 0.18], [1172, 500, 0.13], [1215, 405, 0.088], [1250, 335, 0.058]];
+function forkPoint(p) {                          // p 0..1 along the track by distance
+  const P = FORK_PATH, len = [0];
+  for (let i = 1; i < P.length; i++) len.push(len[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+  const d = U.clamp(p) * len[len.length - 1];
+  let i = 1; while (i < P.length - 1 && len[i] < d) i++;
+  const k = (d - len[i - 1]) / (len[i] - len[i - 1]), a = P[i - 1], b = P[i];
+  return { x: U.lerp(a[0], b[0], k), y: U.lerp(a[1], b[1], k), s: U.lerp(a[2], b[2], k), ang: Math.atan2(b[1] - a[1], b[0] - a[0]) };
+}
 function drawFork(ctx, t, light, carP) {
-  drawCover(ctx, A.fwdFork, 1.04 + t * 0.008, 0.62, 0.55);
-  const p = carP;
-  const pts = [[790, 990, 0.62], [1010, 700, 0.3], [1150, 545, 0.17], [1265, 400, 0.08]];
-  const seg = Math.min(2, Math.floor(p * 3)), k = p * 3 - seg;
-  const a = pts[seg], b = pts[seg + 1];
-  const cx = U.lerp(a[0], b[0], k), cy = U.lerp(a[1], b[1], k), s = U.lerp(a[2], b[2], k);
-  ctx.save(); ctx.translate(cx, cy + Math.sin(t * 18) * 3 * s); ctx.rotate(0.1 * U.clamp(p * 3 - 1) + Math.sin(t * 7) * 0.03); ctx.scale(s, s);
+  // a very slow push in; the car is drawn inside the same transform so it stays in the ruts
+  const z = 1 + t * 0.006;
+  ctx.save(); ctx.translate(800, 450); ctx.scale(z, z); ctx.translate(-800, -450);
+  drawCover(ctx, A.fwdFork, 1.0, 0.5, 0.5);
+  const q = forkPoint(carP), s = q.s;
+  groundShadow(ctx, q.x, q.y, 330 * s, 0.45);
+  const lean = (q.ang + Math.PI / 2) * 0.35;      // lean gently into the bend
+  ctx.save(); ctx.translate(q.x, q.y + Math.sin(t * 18) * 2 * s); ctx.rotate(lean + Math.sin(t * 7) * 0.015); ctx.scale(s, s);
   ctx.drawImage(A.carBack, -576, -805);
   ctx.globalCompositeOperation = 'lighter';
   for (const lx of [-210, 214]) {
@@ -19,6 +31,7 @@ function drawFork(ctx, t, light, carP) {
     g.addColorStop(0, 'rgba(255,60,40,.8)'); g.addColorStop(1, 'rgba(255,60,40,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(lx, -130, 90, 0, Math.PI * 2); ctx.fill();
   }
+  ctx.restore();
   ctx.restore();
   darken(ctx, U.clamp((1 - light) * 0.62));
 }
@@ -318,16 +331,16 @@ const SHOTS = [
     enter: S => { SFX.setRain(0.55); SFX.setEngine(0.8, 0.95); },
     draw: (ctx, t, dt, S, L) => {
       const p = t / 3.8, light = U.lerp(0.6, 0.52, p);
-      drawCover(ctx, A.scSky, 1.1, 0.5, 0.3);
-      drawStormClouds(ctx, light, S.time * 25);
-      // the vineyard rows running away behind them; we drift back slowly as the car comes on
-      drawCover(ctx, A.scVinesFwd, 1.12 - p * 0.04, 0.5, 0.5);
-      mist(ctx, 0.3, 300);
-      darken(ctx, (1 - light) * 0.75);
-      // the car: bouncing on the ruts, a little sway, growing as it approaches
-      const s = 0.72 + p * 0.08, bob = Math.sin(t * 19) * 4 + Math.sin(t * 7.3) * 3, sway = Math.sin(t * 2.6) * 0.025;
+      // the muddy lane between the vines, running away behind them (the painted forward view, seen from the front of the car)
+      drawCover(ctx, A.fwdVines, 1.0, 0.5, 0.5);
+      mist(ctx, 0.15, 300);
+      darken(ctx, (1 - light) * 0.5);
+      // the car comes along the lane towards us: on the ground, in the ruts, sized to the lane
+      const k = U.ease(p), gx = U.lerp(948, 905, k) + Math.sin(t * 1.7) * 6, gy = U.lerp(600, 740, k), s = U.lerp(0.27, 0.42, k);
+      const bob = (Math.sin(t * 19) * 3 + Math.sin(t * 7.3) * 2) * s, sway = Math.sin(t * 2.6) * 0.018;
+      groundShadow(ctx, gx, gy + 2, 360 * s, 0.5);
       ctx.save();
-      ctx.translate(800 + Math.sin(t * 1.7) * 18, 915 + bob); ctx.rotate(sway); ctx.scale(s, s);
+      ctx.translate(gx, gy + bob); ctx.rotate(sway); ctx.scale(s, s);
       ctx.drawImage(A.carFront, -576, -820);
       // headlights
       ctx.globalCompositeOperation = 'lighter';
@@ -339,7 +352,7 @@ const SHOTS = [
       ctx.restore();
       darken(ctx, (1 - light) * 0.25);
       // a little mud kicked up by the front tyres
-      if (Math.random() < 0.5) for (const sx of [-260, 260]) S.mud.add(800 + sx * s, 900, sx * 1.2 + (Math.random() - .5) * 300, -200 - Math.random() * 300, 3 + Math.random() * 5, '#4e3420', 0.9);
+      if (Math.random() < 0.4) for (const sx of [-260, 260]) S.mud.add(gx + sx * s, gy - 10, sx * 0.8 * s * 2 + (Math.random() - .5) * 160, -120 - Math.random() * 180, 2 + Math.random() * 3, '#4e3420', 0.8);
       S.mud.update(dt); S.mud.draw(ctx);
       drawRain(ctx, t + S.time, 0.65);
     },
@@ -389,14 +402,16 @@ const SHOTS = [
     name: 'fork', fy: 0.6, dur: 5,
     enter: S => { SFX.setEngine(0.8, 0.9); },
     draw: (ctx, t, dt, S, L) => {
-      drawFork(ctx, t, U.lerp(0.2, 0.12, t / 5), U.ease(U.clamp(t / 5)));
+      // unhurried: easing off as it climbs, and only about three-quarters of the way up the track by the cut
+      const u = U.clamp(t / 5);
+      drawFork(ctx, t, U.lerp(0.2, 0.13, u), 0.74 * (1 - Math.pow(1 - u, 1.8)));
       drawRain(ctx, t + S.time, 0.85);
     },
   },
   { // 8. Uphill through the forest; it's nearly dark; they slow right down
     name: 'side-forest', fy: 0.95, dur: 5,
     enter: S => { SFX.setRain(0.9); },
-    draw: sideShot({ dur: 5, speed: t => U.lerp(420, 150, U.clamp(t / 5)), mode: 'forest', light: p => U.lerp(0.13, 0.1, p), rain: 0.95, tiltWorld: -0.06 }),
+    draw: sideShot({ dur: 5, speed: t => U.lerp(420, 150, U.clamp(t / 5)), mode: 'forest', light: p => U.lerp(0.13, 0.07, p), rain: 0.95, tiltWorld: -0.06 }),
     tick: (t) => SFX.setEngine(1, U.lerp(1.1, 0.7, t / 5)),
   },
   { // 9. Inside, creeping along… then J slams on the brakes
@@ -404,7 +419,7 @@ const SHOTS = [
     enter: S => { S.inGlass.fillHaze(0.95); },
     draw: insideShot({
       dur: 4.6, speed: t => t < 3.3 ? 4 : Math.max(0, 4 - (t - 3.3) * 6), img: 'fwdForest', fy: 0.45, zoom: p => 1.12 + Math.min(p, 0.72) * 0.1,
-      cabin: t => t < 3.3 ? 'inAnxious' : 'inShocked', light: 0.12, rain: 1, hazeMax: 0.92, wiperSpeed: 1.25,
+      cabin: t => t < 3.3 ? 'inAnxious' : 'inShocked', light: p => U.lerp(0.07, 0.04, p), rain: 1, hazeMax: 0.92, wiperSpeed: 1.25,
       sway: (t, L) => {
         once(L, 'brake', t > 3.3, () => { SFX.skid(1.4); L.jolt = 26; SFX.setEngine(0.4, 0.6); });
         return t > 3.3 ? Math.sin((t - 3.3) * 10) * 0.07 : 0;
@@ -413,46 +428,41 @@ const SHOTS = [
   },
   { // 10. Two shocked faces: the car lurches to a stop, nose down
     name: 'faces-brake', dur: 1.6,
-    draw: frontCloseShot({ dur: 1.6, img: 'frontShock', bg: 'forest', light: 0.3, rain: 0.9, shake: t => 16 * Math.exp(-t * 2), zoom: p => 1.55 + p * 0.12, bob: 0,
+    draw: frontCloseShot({ dur: 1.6, img: 'frontShock', bg: 'forest', light: 0.2, rain: 0.9, shake: t => 16 * Math.exp(-t * 2), zoom: p => 1.55 + p * 0.12, bob: 0,
       lurch: t => Math.sin(t * 9) * 0.02 * Math.exp(-t * 2.5) }),
   },
-  { // 11. Inside: two café chairs, right in front of them!
+  { // 11. Inside: the darkest moment. Rain, blackness, and just the dim backs of two café chairs in the headlights
     name: 'inside-chairs', dur: 2.2,
     draw: insideShot({
-      dur: 2.2, speed: t => Math.max(0, 3 - t * 3), cabin: 'inShocked', light: 0.16, rain: 0.8, hazeMax: 0.35, refill: 0.3, wiperSpeed: 1.5,
+      dur: 2.2, speed: t => Math.max(0, 3 - t * 3), cabin: 'inShocked', light: 0.03, rain: 0.9, hazeMax: 0.6, refill: 0.5, wiperSpeed: 1.5,
       outside: (ctx, t, dt, S, L, light, sway) => {
-        drawForwardImg(ctx, A.fwdClearing, { zoom: 1.2, fy: 0.5, light, sway: sway * 0.5, lights: 1 });
         const k = U.easeOut(U.clamp(t / 1.1));
-        drawBistro(ctx, 800, 440 + k * 40, 0.36 + k * 0.16, { table: false });
-        // caught in the headlights
-        ctx.save(); ctx.globalCompositeOperation = 'lighter';
-        const g = ctx.createRadialGradient(800, 400, 20, 800, 400, 420);
-        g.addColorStop(0, 'rgba(255,230,160,.3)'); g.addColorStop(1, 'rgba(255,230,160,0)');
-        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore();
+        drawForwardImg(ctx, A.fwdClearing, { zoom: 1.2, fy: 0.5, light, dark: 0.95, sway: sway * 0.5, lights: 0.8, propsBright: 0.32,
+          props: c => drawBistroAhead(c, 800, 452 + k * 24, 0.34 + k * 0.12, { table: false }) });
       },
       sway: (t, L) => { once(L, 'stop', t > 1.1, () => { L.jolt = 20; SFX.squelch(); }); return 0; },
     }),
   },
-  { // 12. Side: the car taps a chair, which hops up and lands back on its feet
+  { // 12. Side, in near darkness: the car slides to a stop just short of a café chair, which stands
+    // in the headlight beam with its back to the car. The car and the forest are barely visible.
     name: 'side-tap', fy: 0.95, dur: 3.4,
     enter: S => { L_stopAt = S.scroll + 260; SFX.setEngine(0.3, 0.55); SFX.setRain(0.6); },
     draw: (ctx, t, dt, S, L) => {
       const speed = Math.max(0, 320 * (1 - t / 1.05));
       S.scroll += speed * dt;
-      const light = 0.16;
+      const light = 0.04;
       ctx.save();
       ctx.translate(800, 450); ctx.rotate(-0.03); ctx.scale(1.07, 1.07); ctx.translate(-800, -450);
       drawSideWorld(ctx, { scroll: S.scroll, light, mode: 'forest' });
-      const chairX = 1180 + (L_stopAt - S.scroll);
-      const tip = t > 1.0 && t < 1.75 ? Math.sin((t - 1.0) / 0.75 * Math.PI) * 0.32 : 0;
-      once(L, 'tap', t > 1.0, () => SFX.thunk());
-      once(L, 'land', t > 1.75, () => SFX.thunk());
-      drawChair(ctx, chairX, 868, 0.62, 1, tip);
-      const car = { x: 720, ground: 868, s: 0.62, scroll: S.scroll, rotateAll: t < 1.05 ? Math.sin(t * 8) * 0.03 : 0, bumpAmt: U.clamp(speed / 300), worried: 1 };
+      const car = { x: 720, ground: 868, s: 0.62, scroll: S.scroll, rotateAll: t < 1.05 ? Math.sin(t * 8) * 0.02 : 0, bumpAmt: U.clamp(speed / 300), worried: 1 };
       drawCarSide(ctx, car);
       S.mud.update(dt); S.mud.draw(ctx);
-      darken(ctx, U.clamp((1 - light) * 0.75));
-      drawCarLights(ctx, { ...car, lights: 1 });
+      darken(ctx, 0.92);
+      ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(-100, -100, W + 200, H + 200);   // the car and the trees barely there
+      // the chair, caught in the beam (it faces right, out towards the valley)
+      const chairX = 1080 + (L_stopAt - S.scroll);
+      ctx.save(); ctx.filter = 'brightness(0.55) sepia(0.25)'; groundShadow(ctx, chairX, 870, 70, 0.5); drawChair(ctx, chairX, 868, 0.62, -1); ctx.restore();
+      drawCarLights(ctx, { ...car, lights: 0.85 });
       ctx.restore();
       drawRain(ctx, t + S.time, 0.6);
     },
@@ -461,35 +471,30 @@ const SHOTS = [
     name: 'inside-table', dur: 4.2,
     enter: S => { SFX.setEngine(0, 0.5); SFX.setRain(0.4); },
     draw: insideShot({
-      dur: 4.2, speed: 0, cabin: 'inSunny', light: p => U.lerp(0.18, 0.4, p), rain: p => U.lerp(0.5, 0.25, p), hazeMax: 0.7, refill: 0.5,
+      // still night outside (the valley and the side windows stay black), but the whole set now stands in the headlights
+      dur: 4.2, speed: 0, cabin: 'inSunny', light: p => U.lerp(0.04, 0.1, p), rain: p => U.lerp(0.5, 0.25, p), hazeMax: 0.7, refill: 0.5,
       outside: (ctx, t, dt, S, L, light) => {
-        drawForwardImg(ctx, A.fwdClearing, { zoom: 1.2, fy: 0.5, light, lights: 1 });
-        drawBistro(ctx, 800, 480, 0.5);
-        darken(ctx, U.clamp((1 - light) * 0.35));
-        // headlight glow on the table
-        ctx.save(); ctx.globalCompositeOperation = 'lighter';
-        const g = ctx.createRadialGradient(800, 400, 20, 800, 400, 360);
-        g.addColorStop(0, 'rgba(255,230,160,.22)'); g.addColorStop(1, 'rgba(255,230,160,0)');
-        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore();
+        drawForwardImg(ctx, A.fwdClearing, { zoom: 1.2, fy: 0.5, light, dark: 0.95, lights: 1, propsBright: U.lerp(0.6, 0.85, U.clamp(t / 2.5)),
+          props: c => drawBistroAhead(c, 800, 476, 0.46) });
       },
     }),
   },
   { // 14. Smiles
     name: 'faces-smile', dur: 3,
-    draw: frontCloseShot({ dur: 3, img: 'frontSmile', bg: 'forest', light: 0.5, rain: 0.25, zoom: p => U.lerp(2.0, 2.1, p), bob: 0.4 }),
+    draw: frontCloseShot({ dur: 3, img: 'frontSmile', bg: 'forest', light: 0.32, rain: 0.25, zoom: p => U.lerp(2.0, 2.1, p), bob: 0.4 }),
   },
   { // 15. Side: forest to the left, a vast open space to the right; it brightens; birdsong
     name: 'side-open', fy: 0.95, dur: 4.8,
     enter: S => { SFX.setRain(0.05); setTimeout(() => SFX.birds(true), 1500); },
     draw: (ctx, t, dt, S, L) => {
-      const p = t / 4.8, light = U.lerp(0.4, 1.7, U.ease(p));
+      const p = t / 4.8, light = U.lerp(0.12, 1.15, U.ease(p));        // from near dark to a clearing sky, not yet full sun
       drawCover(ctx, A.clearing, 1.04 - p * 0.03, 0.4, 0.8);
-      drawBistro(ctx, 1240, 830, 0.58);
+      drawBistroSide(ctx, 1170, 832, 0.58);
       drawCarSide(ctx, { x: 560, ground: 838, s: 0.62, scroll: S.scroll, bumpAmt: 0 });
       darken(ctx, U.clamp((1 - light) * 0.75));
       drawRain(ctx, t + S.time, U.clamp(0.4 - p * 0.8));
       // shafts of sunlight from the right
-      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = U.clamp((p - 0.4) * 1.5) * 0.35;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = U.clamp((p - 0.5) * 1.5) * 0.25;
       const sg = ctx.createRadialGradient(W + 100, 300, 50, W + 100, 300, 1100);
       sg.addColorStop(0, 'rgba(255,230,160,1)'); sg.addColorStop(1, 'rgba(255,230,160,0)');
       ctx.fillStyle = sg; ctx.fillRect(0, 0, W, H); ctx.restore();
@@ -509,8 +514,8 @@ const SHOTS = [
         S.inGlass.hx.globalAlpha = dt * 0.8; S.inGlass.hx.fillRect(0, 0, W, H);
         S.inGlass.hx.globalAlpha = 1; S.inGlass.hx.globalCompositeOperation = 'source-over';
         drawPano(ctx, 1 + t * 0.006);
-        drawRainbow(ctx, U.ease(U.clamp((t - 0.8) / 3)), 1000, 470, 420);
-        drawBistro(ctx, 800, 480, 0.5);
+        // (no table and chairs here: they're just below the bonnet, out of sight)
+        drawRainbow(ctx, U.ease(U.clamp((t - 0.8) / 3)), 1150, 560, 330);
       },
     }),
   },
@@ -522,10 +527,7 @@ const SHOTS = [
       // the camera pulls back from the windscreen framing to the whole panorama
       const zk = U.ease(U.clamp(t / 2.6));
       drawPano(ctx, 1.03 + U.easeOut(U.clamp(t / 9)) * 0.08, zk);
-      drawRainbow(ctx, 1, U.lerp(1000, 980, zk), U.lerp(470, 760, zk), U.lerp(420, 620, zk));
-      // table rushes past underneath us
-      const k = U.easeIn(U.clamp(t / 2.2));
-      if (k < 1) drawBistro(ctx, 800, 480 + k * 1000, 0.5 + k * 2.4);
+      drawRainbow(ctx, 1, U.lerp(1150, 1200, zk), U.lerp(560, 800, zk), U.lerp(330, 600, zk));
       // the cabin grows and falls away as we pass through the windscreen
       const c = U.ease(U.clamp(t / 1.8));
       if (c < 1) drawInterior(ctx, A.inSunny, 1.6, { alpha: 1 - c, scale: 1 + c * 2.4 });
@@ -563,11 +565,13 @@ const SHOTS = [
     enter: S => { setTimeout(() => SFX.clink(), 1900); },
     draw: (ctx, t, dt, S, L) => {
       drawCover(ctx, A.pano, 1.18, 0.6, 0.75);
-      drawRainbow(ctx, 0.9, 1000, 820, 700);
+      drawRainbow(ctx, 1 - U.seg(t, 5.0, 7.5), 1200, 800, 600);          // fades away as the menu comes up
       drawRisingBubbles(ctx, t + 9, 34, 0.9);
-      // the bistro table beside them
-      drawTable(ctx, 1170, Math.min(872, VIEW.bottom - 12), Math.min(0.95, (VIEW.bottom - VIEW.top - 60) / 500));
-      drawChair(ctx, 1400, Math.min(878, VIEW.bottom - 6), Math.min(1.0, (VIEW.bottom - VIEW.top - 60) / 330), -1);
+      // the bistro set beside them, standing on the grass (feet on the ground, with a shadow), facing the valley
+      const ground = Math.min(866, VIEW.bottom - 10), ps = Math.min(0.9, (VIEW.bottom - VIEW.top - 60) / 520);
+      groundShadow(ctx, 1250, ground + 2, 260 * ps, 0.4);
+      drawTable(ctx, 1180, ground - 6, ps);
+      drawChair(ctx, 1380, ground, ps * 1.05, -1);
       // S & J, arm in arm; a slight nod and settle
       // sized to the rows on screen (a sideways phone trims the height): feet near the bottom, heads clear of the top
       const room = VIEW.bottom - VIEW.top, Y = Math.min(860, VIEW.bottom - 40);

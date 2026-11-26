@@ -486,7 +486,8 @@ function drawInterior(ctx, img, light = 1, o = {}) {
 
 /* ---------- Forward view (a painted picture out of the windscreen) ----------
    The picture is drawn to cover the frame with its focus point (fx, fy) at the windscreen centre.
-   o: { zoom, fx, fy, light, sway, lights } */
+   o: { zoom, fx, fy, light, dark (how strongly low light darkens, default 0.75), sway, lights,
+        props(ctx) drawn after the darkening (things standing in the headlights), propsBright } */
 function drawForwardImg(ctx, img, o) {
   const fx = o.fx ?? 0.5, fy = o.fy ?? 0.42, z = o.zoom ?? 1.15;
   const sc = Math.max(W / img.width, H / img.height) * z, w = img.width * sc, h = img.height * sc;
@@ -494,14 +495,21 @@ function drawForwardImg(ctx, img, o) {
   if (o.sway) { ctx.translate(800, 600); ctx.rotate(o.sway); ctx.translate(-800, -600); }
   ctx.drawImage(img, WINDSCREEN.cx - w * fx, WINDSCREEN.cy - h * fy, w, h);
   ctx.restore();
-  darken(ctx, U.clamp((1 - o.light) * 0.75));
-  if (o.lights) {
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    const g = ctx.createRadialGradient(800, 470, 20, 800, 400, 420);
-    g.addColorStop(0, `rgba(255,232,170,${0.3 * o.lights})`); g.addColorStop(1, 'rgba(255,232,170,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(480, 560); ctx.lineTo(740, 340); ctx.lineTo(860, 340); ctx.lineTo(1120, 560); ctx.closePath(); ctx.fill();
-    ctx.restore();
-  }
+  darken(ctx, U.clamp((1 - o.light) * (o.dark ?? 0.75)));
+  if (o.lights) darken(ctx, 0.3 * o.lights);                  // outside the beam it's darker still
+  if (o.props) { ctx.save(); if ((o.propsBright ?? 1) < 1) ctx.filter = `brightness(${o.propsBright})`; o.props(ctx); ctx.restore(); }
+  if (o.lights) drawHeadlightGlow(ctx, o.lights);
+}
+/* Headlights seen from inside: a soft, wide, low pool of warm light on the ground just ahead,
+   barely recognisable as round, fading out on every side. */
+function drawHeadlightGlow(ctx, k, cx = 800, cy = 468) {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  ctx.translate(cx, cy); ctx.scale(1, 0.36);
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 560);
+  g.addColorStop(0, `rgba(255,226,165,${0.3 * k})`); g.addColorStop(0.35, `rgba(255,226,165,${0.17 * k})`);
+  g.addColorStop(0.7, `rgba(255,226,165,${0.05 * k})`); g.addColorStop(1, 'rgba(255,226,165,0)');
+  ctx.fillStyle = g; ctx.fillRect(-700, -1800, 1400, 3600);
+  ctx.restore();
 }
 
 /* ---------- Bistro set (painted props, magenta keyed and trimmed) ----------
@@ -563,18 +571,42 @@ function drawCork(ctx, x, y, s, rot = 0) {
   shape(); ctx.strokeStyle = 'rgba(70,46,26,.7)'; ctx.lineWidth = 1.4; ctx.stroke();
   ctx.restore();
 }
-/* Two chairs either side of the table. o: { table:false, tipL, tipR } */
-function drawBistro(ctx, x, y, s, o = {}) {
-  drawChair(ctx, x - 170 * s, y + 6 * s, s, 1, o.tipL || 0);
-  drawChair(ctx, x + 170 * s, y + 6 * s, s, -1, o.tipR || 0);
-  if (o.table !== false) drawTable(ctx, x, y, s);
+/* The set always faces the valley: the chairs have their backs to the car, so whoever sits there
+   looks out over the view, with the table in front of them. (The chair picture faces left; flip -1 faces right.) */
+function groundShadow(ctx, x, y, rx, a = 0.35) {
+  ctx.save(); ctx.fillStyle = `rgba(20,16,10,${a})`; ctx.filter = 'blur(5px)';
+  ctx.beginPath(); ctx.ellipse(x, y, rx, rx * 0.16, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+}
+// Seen from the side (the car on the left, the valley to the right): chairs on the car side facing right, table beyond.
+function drawBistroSide(ctx, x, y, s, o = {}) {
+  groundShadow(ctx, x - 30 * s, y, 230 * s);
+  drawChair(ctx, x - 60 * s, y - 10 * s, s * 0.92, -1);        // the far chair, a little behind
+  if (o.table !== false) drawTable(ctx, x + 110 * s, y - 4 * s, s);
+  drawChair(ctx, x - 140 * s, y, s, -1);                        // the near chair
+}
+// Seen from the car, looking ahead: the chair backs towards us, the table just beyond them.
+function drawBistroAhead(ctx, x, y, s, o = {}) {
+  groundShadow(ctx, x, y, 200 * s);
+  if (o.table !== false) drawTable(ctx, x, y - 34 * s, s * 0.9);
+  drawChair(ctx, x - 100 * s, y, s, -1);
+  drawChair(ctx, x + 100 * s, y, s, 1);
 }
 
-function drawRainbow(ctx, alpha, cx = 980, cy = 760, r = 620) {
-  if (alpha <= 0) return;
-  const cols = ['#e8443a', '#f39a2c', '#f6d84a', '#5cb85c', '#3d8fd6', '#5b5bc8', '#8f53b8'];
-  ctx.save(); ctx.globalAlpha = alpha * 0.55; ctx.lineWidth = 16;
-  cols.forEach((c, i) => { ctx.strokeStyle = c; ctx.beginPath(); ctx.arc(cx, cy, r - i * 15, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke(); });
+/* A faint, partial rainbow far off in the sky: just a piece of the arc (a0..a1, canvas angles; 1.5π is the top),
+   fading out at both ends, soft-edged and see-through. */
+function drawRainbow(ctx, alpha, cx = 1150, cy = 780, r = 600, a0 = Math.PI * 1.52, a1 = Math.PI * 1.86) {
+  if (alpha <= 0.01) return;
+  const cols = ['#e8443a', '#f39a2c', '#f6d84a', '#5cb85c', '#3d8fd6', '#6a5acd'], bw = r * 0.012 + 2;
+  ctx.save(); ctx.filter = `blur(${(bw * 0.6).toFixed(1)}px)`; ctx.lineCap = 'butt'; ctx.lineWidth = bw + 1;
+  const N = 36;
+  for (let i = 0; i < N; i++) {
+    const u0 = i / N, u1 = (i + 1) / N, fade = Math.pow(Math.sin(Math.PI * (u0 + u1) / 2), 1.6);
+    ctx.globalAlpha = alpha * 0.32 * fade;
+    cols.forEach((c, j) => {
+      ctx.strokeStyle = c; ctx.beginPath();
+      ctx.arc(cx, cy, r - j * bw, a0 + (a1 - a0) * u0, a0 + (a1 - a0) * u1 + 0.002); ctx.stroke();
+    });
+  }
   ctx.restore();
 }
 
