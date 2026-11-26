@@ -478,9 +478,9 @@ const SHOTS = [
       dur: 2.2, speed: t => Math.max(0, 3 - t * 3), cabin: 'inShocked', light: 0.03, rain: 0.9, hazeMax: 0.6, refill: 0.5, wiperSpeed: 1.5,
       outside: (ctx, t, dt, S, L, light, sway) => {
         // the car rolls the last few metres: the chairs come from 6 m to their resting 3.6 m away (the set layout)
-        const k = U.easeOut(U.clamp(t / 1.1)), dist = U.lerp(6, 3.6, k);
+        const k = U.easeOut(U.clamp(t / 1.1)), dist = U.lerp(5.5, SET_STOP, k);
         drawForwardImg(ctx, A.fwdClearing, { zoom: 1.2, fy: 0.5, light, dark: 0.95, sway: sway * 0.5, lights: 0.8, propsBright: 0.32,
-          props: c => drawSetAhead(c, dist, { table: false }) });
+          glowY: setAheadFeetY(dist), props: c => drawSetAhead(c, dist, { table: false }) });
       },
       sway: (t, L) => { once(L, 'stop', t > 1.1, () => { L.jolt = 20; SFX.squelch(); }); return 0; },
     }),
@@ -519,7 +519,7 @@ const SHOTS = [
       dur: 4.2, speed: 0, cabin: 'inSunny', light: p => U.lerp(0.04, 0.1, p), rain: p => U.lerp(0.5, 0.25, p), hazeMax: 0.7, refill: 0.5,
       outside: (ctx, t, dt, S, L, light) => {
         drawForwardImg(ctx, A.fwdClearing, { zoom: 1.2, fy: 0.5, light, dark: 0.95, lights: 1, propsBright: U.lerp(0.6, 0.85, U.clamp(t / 2.5)),
-          props: c => drawSetAhead(c, 3.6) });
+          glowY: setAheadFeetY(SET_STOP), props: c => drawSetAhead(c, SET_STOP) });
       },
     }),
   },

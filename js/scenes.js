@@ -531,7 +531,8 @@ function drawForwardImg(ctx, img, o) {
     ctx.fillRect(0, 0, W, H); ctx.restore();
   }
   if (o.props) { ctx.save(); if ((o.propsBright ?? 1) < 1) ctx.filter = `brightness(${o.propsBright})`; o.props(ctx); ctx.restore(); }
-  if (o.lights) drawHeadlightGlow(ctx, o.lights);
+  // the pool of light lies on the ground around whatever stands in it (o.glowY = where the chairs' feet are)
+  if (o.lights) drawHeadlightGlow(ctx, o.lights, 800, o.glowY ? o.glowY + 8 : 468);
 }
 /* Headlights seen from inside: a soft, wide, low pool of warm light on the ground just ahead,
    barely recognisable as round, fading out on every side. */
@@ -634,8 +635,10 @@ function drawSetTable(ctx, x, y, pxPerM) {
 // From the back seat, looking ahead (+x). `dist` = metres from the camera to the chairs. The horizon in
 // the clearing picture sits at y 294; the camera is 1.15 m up. Chairs show their backs; the table is beyond.
 const AHEAD = { hz: 294, camH: 1.15, f: 420, cx: 800 };
+const SET_STOP = 3.1;                                   // metres from the camera (back seat) to the chairs once stopped
+const setAheadFeetY = d => AHEAD.hz + AHEAD.f * AHEAD.camH / d;
 function drawSetAhead(ctx, dist, o = {}) {
-  const P = d => ({ y: AHEAD.hz + AHEAD.f * AHEAD.camH / d, m: AHEAD.f / d });
+  const P = d => ({ y: setAheadFeetY(d), m: AHEAD.f / d });
   if (o.table !== false) { const t = P(dist + SET.tableX); drawSetTable(ctx, AHEAD.cx, t.y, t.m); }
   const c = P(dist);
   drawSetChair(ctx, AHEAD.cx - SET.chairZ * c.m, c.y, c.m, 1, 'back');
@@ -647,9 +650,10 @@ function drawSetSide(ctx, carX, ground, carS = 0.62, o = {}) {
   const m = 183 * carS / 0.62;                              // pixels per metre at the car (wheelbase 2.4 m)
   const bumper = carX + 300 * carS / 0.62, cx = bumper + SET.gap * m;
   const far = o.farAlpha ?? 1;
-  if (far > 0.01) { ctx.save(); ctx.globalAlpha = far; drawSetChair(ctx, cx + 4, ground - 7, m * 0.97, 1, 'side', far); ctx.restore(); }
-  if (o.table !== false) drawSetTable(ctx, cx + SET.tableX * m, ground - 2, m);
-  drawSetChair(ctx, cx - 4, ground + 7, m * 1.03, 1, 'side');
+  // the far chair sits a little to the right and higher (seen past the near one at a slight angle), so the two read as two
+  if (far > 0.01) { ctx.save(); ctx.globalAlpha = far; drawSetChair(ctx, cx + 0.32 * m, ground - 12, m * 0.95, 1, 'side', far); ctx.restore(); }
+  if (o.table !== false) drawSetTable(ctx, cx + SET.tableX * m + 0.15 * m, ground - 6, m);
+  drawSetChair(ctx, cx - 0.1 * m, ground + 8, m * 1.03, 1, 'side');
   return cx;
 }
 
