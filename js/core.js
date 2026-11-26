@@ -47,6 +47,7 @@ const ASSET_FILES = {
   frontWorried: 'SandJ/cit_worried_front.jfif',
   scVinesFwd: 'scenery/shot0/vineyard_hills.jfif',   // looking down the rows: used behind the front-on car
   back: 'SandJ/Cit-back.jpg',
+  backTurn: 'SandJ/cit_back_turn_right2.jpg',   // rear three-quarter, turning up the right fork (shot 7)
   cheers: 'SandJ/S-J_cheers.jfif',
   // Batch 2: the roadside chat (same framing as Cit-side.jpg)
   sideChat: 'SandJ/Cit-S-window-chat.jfif',
@@ -294,6 +295,7 @@ function carParts(side) {
 
 function finishAssets() {
   A.carBack = keyGreen(RAW.back);
+  A.carBackTurn = keyGreen(RAW.backTurn);
   A.cheers = keyGreen(RAW.cheers);   // 864x1152, glasses touch at ~(430,400)
   for (const k of ['frontShock', 'frontSmile', 'frontAwe', 'inSunny', 'inAnxious', 'inShocked']) A[k] = keyGreen(RAW[k]);
   for (const k of ['fwdVines', 'fwdFork', 'fwdForest', 'fwdClearing', 'pano', 'clearing']) A[k] = RAW[k];

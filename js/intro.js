@@ -20,16 +20,17 @@ function drawFork(ctx, t, light, carP) {
   const z = 1 + t * 0.006;
   ctx.save(); ctx.translate(800, 450); ctx.scale(z, z); ctx.translate(-800, -450);
   drawCover(ctx, A.fwdFork, 1.0, 0.5, 0.5);
-  const q = forkPoint(carP), s = q.s;
-  groundShadow(ctx, q.x, q.y, 330 * s, 0.45);
-  const lean = (q.ang + Math.PI / 2) * 0.35;      // lean gently into the bend
-  ctx.save(); ctx.translate(q.x, q.y + Math.sin(t * 18) * 2 * s); ctx.rotate(lean + Math.sin(t * 7) * 0.015); ctx.scale(s, s);
-  ctx.drawImage(A.carBack, -576, -805);
+  // the rear three-quarter picture (cit_back_turn_right2), anchored at the middle of the car on the ground,
+  // so it sits in the ruts; 1.5x because its rear is narrower in the picture than the square-on one
+  const q = forkPoint(carP), s = q.s * 1.5;
+  groundShadow(ctx, q.x + 10 * s, q.y - 4 * s, 420 * s, 0.45);
+  ctx.save(); ctx.translate(q.x, q.y + Math.sin(t * 18) * 2 * s); ctx.rotate(Math.sin(t * 7) * 0.012); ctx.scale(s, s);
+  ctx.drawImage(A.carBackTurn, -600, -730);
   ctx.globalCompositeOperation = 'lighter';
-  for (const lx of [-210, 214]) {
-    const g = ctx.createRadialGradient(lx, -130, 4, lx, -130, 90);
-    g.addColorStop(0, 'rgba(255,60,40,.8)'); g.addColorStop(1, 'rgba(255,60,40,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(lx, -130, 90, 0, Math.PI * 2); ctx.fill();
+  for (const [lx, ly] of [[-472, -150], [-192, -120]]) {               // a soft glow round the rear lights
+    const g = ctx.createRadialGradient(lx, ly, 4, lx, ly, 80);
+    g.addColorStop(0, 'rgba(255,60,40,.6)'); g.addColorStop(1, 'rgba(255,60,40,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(lx, ly, 80, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
   ctx.restore();
