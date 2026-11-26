@@ -620,7 +620,9 @@ const SHOTS = [
       // Sized to the couple: they're ~1.7 m tall at h * 0.8 px; the set stands further back, so smaller still.
       // (the only open grass in this view is the strip beside the track, level with the couple, so the set
       // stands there, a step behind them, feet on that grass; drawn a little under true scale so it stays modest)
-      const m = h * 0.33, cx = 1010, gy = Y - h * 0.05;                      // px per metre at the chairs; their feet (the couple's are at ~Y - 10)
+      // nearer the camera than the couple: bigger, its feet below the bottom edge and partly cut off at the right,
+      // like something in the foreground
+      const m = h * 0.7, cx = 1330, gy = VIEW.bottom + h * 0.1;
       drawSetTable(ctx, cx, gy - 0.12 * m, m * 0.9);                         // 0.75 m further: a touch higher, smaller
       drawSetChair(ctx, cx - SET.chairZ * m * 1.15, gy, m, 1, 'back');
       drawSetChair(ctx, cx + SET.chairZ * m * 1.15, gy, m, 1, 'back');
