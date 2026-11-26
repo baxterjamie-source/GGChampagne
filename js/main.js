@@ -99,9 +99,17 @@ function scheduleNudge() {
     scheduleNudge();
   }, 5000 + Math.random() * 4000);
 }
+/* Android: go true full screen (no status bar, address bar or camera strip) on the first tap.
+   Browsers only allow it from a tap. iPhones don't support it for pages; that's fine, nothing happens. */
+function goFullscreen() {
+  const el = document.documentElement, fn = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!fn || document.fullscreenElement || document.webkitFullscreenElement) return;
+  try { const p = fn.call(el, { navigationUI: 'hide' }); if (p && p.catch) p.catch(() => {}); } catch { }
+}
 function onTap() {
   if (popping) return;
   SFX.init();
+  goFullscreen();
   clearTimeout(idleTimer);
   taps++;
   bottleCanvas.classList.remove('nudge', 'tap1', 'tap2', 'tap3');
@@ -235,6 +243,7 @@ $('#menu').addEventListener('click', e => {
   const b = e.target.closest('[data-action]');
   if (!b) return;
   SFX.init();
+  if (b.dataset.action === 'replay') goFullscreen();
   const a = b.dataset.action;
   if (a === 'replay') { SFX.stopAll(); startIntro(0); }
   else if (a === 'reveal') {
