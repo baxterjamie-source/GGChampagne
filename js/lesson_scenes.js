@@ -47,15 +47,23 @@ const LESSON_SCENES = {
 
   terrasse() {
     const ART = LESSON_ART.terrasse, bg = assetUrl('images/' + ART.bg);
-    // S & J at their table (1152x864), feet on the tiles, centred so the sun stays clear on the left
-    const sj = { x: 197.6, y: 137, s: 0.56 };
+    // S & J at their table (1152x864), scaled to the waiter (v1.04: was 0.56), feet on the tiles at y 600,
+    // between the church and the waiter. Their content spans x 165-990, feet at y 830 in the picture.
+    const sj = { s: 0.41 }; sj.x = 380 - 165 * sj.s; sj.y = 600 - 830 * sj.s;
     const sjImg = (key, pose, on) => `<image class="pose${on ? ' on' : ''}" data-pose="${pose}" data-key="${ART[key]}" x="${sj.x}" y="${sj.y}" width="${1152 * sj.s}" height="${864 * sj.s}"/>`;
+    // shapes over the S & J picture, given in that picture's pixels. Hit shapes are kept a little larger
+    // than the things themselves so they are easy to tap on a phone.
+    const P = (ix, iy) => [(sj.x + ix * sj.s).toFixed(1), (sj.y + iy * sj.s).toFixed(1)];
+    const E = (ix, iy, rx, ry, a = '') => { const [cx, cy] = P(ix, iy); return `<ellipse ${a} cx="${cx}" cy="${cy}" rx="${(rx * sj.s).toFixed(1)}" ry="${(ry * sj.s).toFixed(1)}"/>`; };
+    const R = (x0, y0, x1, y1, a = '') => { const [x, y] = P(x0, y0); return `<rect ${a} x="${x}" y="${y}" width="${((x1 - x0) * sj.s).toFixed(1)}" height="${((y1 - y0) * sj.s).toFixed(1)}"/>`; };
     // the waiter (832x1248) on the right. The tray picture faces right, so it is mirrored to face the table
     const wt = { x: 697, y: 126, s: 0.4 }, wb = { x: 696, y: 136, s: 0.4 };
     // the string of bulbs painted in the background (1280x800 -> x0.78125): a soft twinkle over each
-    const bulbs = [[30, 207], [95, 212], [165, 208], [232, 195], [293, 175], [353, 148], [422, 165], [484, 184], [553, 196], [625, 203],
+    const BULBS = [[30, 207], [95, 212], [165, 208], [232, 195], [293, 175], [353, 148], [422, 165], [484, 184], [553, 196], [625, 203],
       [698, 198], [770, 188], [836, 172], [915, 147], [972, 175], [1037, 193], [1105, 208], [1177, 212], [1244, 207]]
-      .map(([x, y], i) => `<circle class="bulb" cx="${(x * .78125).toFixed(1)}" cy="${(y * .78125).toFixed(1)}" r="9" fill="url(#t-bulb)" style="animation-delay:${(i % 5) * .4}s"/>`).join('');
+      .map(([x, y]) => [+(x * .78125).toFixed(1), +(y * .78125).toFixed(1)]);
+    const bulbs = BULBS.map(([x, y], i) => `<circle class="bulb" cx="${x}" cy="${y}" r="9" fill="url(#t-bulb)" style="animation-delay:${(i % 5) * .4}s"/>`).join('');
+    const wire = 'M' + BULBS.map(([x, y]) => `${x} ${y - 6}`).join(' L');
     const hit = 'fill="#000" fill-opacity="0"';
 
     return `<svg class="art" viewBox="0 0 1000 625" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A café terrace among the vines at sunset">
@@ -76,6 +84,19 @@ ${bulbs}
   <image class="pose" data-pose="bow" data-key="${ART.w_bow}" x="${wb.x}" y="${wb.y}" width="${832 * wb.s}" height="${1248 * wb.s}"/>
 </g></g>
 
+<g class="obj" data-id="terrasse">
+  <ellipse class="hl" cx="170" cy="560" rx="190" ry="70"/><rect x="0" y="484" width="1000" height="141" ${hit}/>
+</g>
+<g class="obj" data-id="store">
+  <ellipse class="hl" cx="500" cy="50" rx="560" ry="80"/><rect x="0" y="0" width="1000" height="104" ${hit}/>
+</g>
+<g class="obj" data-id="guirlande">
+  ${BULBS.map(([x, y]) => `<circle class="hl" cx="${x}" cy="${y}" r="20"/>`).join('')}
+  <path d="${wire}" fill="none" stroke="#000" stroke-opacity="0" stroke-width="44" stroke-linejoin="round"/>
+</g>
+<g class="obj" data-id="eglise">
+  <ellipse class="hl" cx="334" cy="285" rx="62" ry="66"/><rect x="288" y="220" width="94" height="116" ${hit}/>
+</g>
 <g class="obj" data-id="soleil">
   <circle class="hl" cx="219" cy="277" r="72"/><circle cx="219" cy="277" r="52" ${hit}/>
 </g>
@@ -85,18 +106,18 @@ ${bulbs}
 <g class="obj" data-id="serveur">
   <ellipse class="hl" cx="868" cy="385" rx="95" ry="230"/><rect x="775" y="160" width="215" height="440" ${hit}/>
 </g>
-<g class="obj" data-id="table">
-  <ellipse class="hl" cx="523" cy="385" rx="118" ry="40"/><ellipse cx="523" cy="383" rx="102" ry="26" ${hit}/><rect x="472" y="400" width="104" height="185" ${hit}/>
-</g>
 <g class="obj" data-id="chaise">
-  <ellipse class="hl" cx="320" cy="455" rx="50" ry="135"/><rect x="286" y="330" width="62" height="262" ${hit}/>
+  ${E(218, 570, 100, 260, 'class="hl"')}${R(150, 340, 275, 815, hit)}
+</g>
+<g class="obj" data-id="table">
+  ${E(580, 440, 215, 75, 'class="hl"')}${E(580, 438, 185, 50, hit)}${R(480, 470, 680, 800, hit)}
 </g>
 <g class="obj" data-id="bouteille">
-  <ellipse class="hl" cx="525" cy="320" rx="34" ry="76"/><ellipse cx="525" cy="322" rx="22" ry="62" ${hit}/>
+  ${E(584, 325, 70, 145, 'class="hl"')}${E(584, 330, 48, 120, hit)}
 </g>
 <g class="obj" data-id="verre">
-  <ellipse class="hl" cx="487" cy="344" rx="26" ry="52"/><ellipse class="hl" cx="558" cy="344" rx="26" ry="52"/>
-  <ellipse cx="487" cy="344" rx="16" ry="42" ${hit}/><ellipse cx="558" cy="344" rx="16" ry="42" ${hit}/>
+  ${E(510, 370, 52, 100, 'class="hl"')}${E(650, 370, 52, 100, 'class="hl"')}
+  ${E(512, 370, 34, 88, hit)}${E(648, 370, 34, 88, hit)}
 </g>
 </svg>`;
   },

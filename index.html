@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,800;1,700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=1.03">
+<link rel="stylesheet" href="style.css?v=1.04">
 </head>
 <body>
   <!-- Loading -->
@@ -62,13 +62,13 @@
       </button>
     </nav>
     <div id="menu-toast" class="menu-toast" hidden></div>
-    <p class="ver">GGChampagne v1.03</p><!-- bump with every push, AND the ?v= on every script/style link above, so phones fetch the new files (v1.03: Lesson 0 painted terrace scene with pose swaps; v1.02: cache stamps on the links; v1.01: shots 12 and 14 static, butterfly, swallows, brighter S & J) -->
+    <p class="ver">GGChampagne v1.04</p><!-- bump with every push, AND the ?v= on every script/style link above, so phones fetch the new files (v1.04: S & J scaled to the waiter, 4 new words, quiz retries with every option explained, word-order slots, step/lesson navigation, Lesson 1 Au restaurant; v1.03: Lesson 0 painted terrace scene with pose swaps; v1.02: cache stamps on the links; v1.01: shots 12 and 14 static, butterfly, swallows, brighter S & J) -->
   </section>
 
   <!-- French lesson -->
   <section id="lesson" class="screen lesson" aria-label="Leçon de français">
     <header class="lesson-head">
-      <button id="lesson-close" class="round" aria-label="Fermer">✕</button>
+      <button id="lesson-close" class="round home" aria-label="Menu" title="Menu · back to the main menu">⌂</button>
       <span id="lesson-title" class="lesson-title"></span>
       <button id="lesson-music" class="round music" aria-label="Musique" title="Musique · music on/off">♪</button>
       <nav id="lesson-tabs" class="lesson-tabs">
@@ -76,7 +76,14 @@
         <button data-tab="sayit">À dire <b id="sayit-count"></b></button>
       </nav>
     </header>
-    <div id="lesson-steps" class="lesson-steps"></div>
+    <nav class="lesson-nav" aria-label="Navigation">
+      <button id="nav-prev-lesson" class="nav-btn" aria-label="Leçon précédente · previous lesson" title="Leçon précédente · previous lesson">⏮</button>
+      <button id="nav-prev" class="nav-btn" aria-label="Étape précédente · previous step" title="Étape précédente · previous step">‹</button>
+      <div id="lesson-steps" class="lesson-steps"></div>
+      <button id="nav-next" class="nav-btn" aria-label="Étape suivante · next step" title="Étape suivante · next step">›</button>
+      <button id="nav-next-lesson" class="nav-btn" aria-label="Leçon suivante · next lesson" title="Leçon suivante · next lesson">⏭</button>
+    </nav>
+    <p id="lesson-step-name" class="lesson-step-name"></p>
     <div class="lesson-body">
       <div id="lesson-scene" class="lesson-scene"></div>
       <div class="lesson-side">
@@ -86,12 +93,12 @@
     </div>
   </section>
 
-  <script src="js/core.js?v=1.03"></script>
-  <script src="js/scenes.js?v=1.03"></script>
-  <script src="js/intro.js?v=1.03"></script>
-  <script src="js/lesson_data.js?v=1.03"></script>
-  <script src="js/lesson_scenes.js?v=1.03"></script>
-  <script src="js/lessons.js?v=1.03"></script>
-  <script src="js/main.js?v=1.03"></script>
+  <script src="js/core.js?v=1.04"></script>
+  <script src="js/scenes.js?v=1.04"></script>
+  <script src="js/intro.js?v=1.04"></script>
+  <script src="js/lesson_data.js?v=1.04"></script>
+  <script src="js/lesson_scenes.js?v=1.04"></script>
+  <script src="js/lessons.js?v=1.04"></script>
+  <script src="js/main.js?v=1.04"></script>
 </body>
 </html>

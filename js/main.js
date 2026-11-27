@@ -293,7 +293,11 @@ function updateNextReveal() {
   $('#next-reveal').textContent = n > 0 ? `First reveal in ${n} day${n === 1 ? '' : 's'}` : "This week's reveal";
   $('#french-sub').textContent = Lessons.menuLabel();
 }
-document.addEventListener('lessonclosed', updateNextReveal);
+document.addEventListener('lessonclosed', () => {
+  // a lesson opened straight from a link (?lesson=N) has no menu under it: bring up the menu scene
+  if (!$('#menu').classList.contains('active')) { SFX.init(); startIntro(SHOTS.length - 1); }
+  updateNextReveal();
+});
 function toast(html) { const t = $('#menu-toast'); t.innerHTML = html; t.hidden = false; }
 
 $('#menu').addEventListener('click', e => {

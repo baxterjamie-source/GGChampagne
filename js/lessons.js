@@ -15,6 +15,7 @@ const Lessons = (() => {
   const preview = params.has('preview') || params.has('lesson');
 
   const STEPS = ['La scène', 'Le dialogue', 'Les cartes', 'Le quiz', 'À dire'];
+  const STEPS_EN = ['the scene', 'the conversation', 'flash cards', 'quiz', 'to say aloud'];
   const WHO = { serveur: 'Le serveur', vous: 'Vous' };
   const FULL = { x: 0, y: 0, w: 1000, h: 625 };
   const root = q('#lesson'), sceneBox = q('#lesson-scene'), panel = q('#lesson-panel'), foot = q('#lesson-foot');
@@ -171,14 +172,41 @@ const Lessons = (() => {
   function tab(name) {
     q('#lesson-tabs').querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
     updateTabCount();
-    if (name === 'sayit') { q('#lesson-steps').hidden = true; renderSayIt(); }
+    if (name === 'sayit') { q('#lesson-steps').hidden = true; renderSayIt(); updateNav(); }
     else { q('#lesson-steps').hidden = false; goStep(db.get('at.' + L.week, 0)); }
   }
   function updateTabCount() { const n = pending().length; q('#sayit-count').textContent = n ? n : ''; }
 
+  /* ---------- Navigation: ⏮ ‹ steps › ⏭ (and the step bars themselves can be tapped) ---------- */
+  const isOpen = l => preview || new Date(l.unlock) <= new Date();
+  const idx = () => LESSONS.indexOf(L);
+  const prevLesson = () => LESSONS[idx() - 1] || null;
+  const nextLesson = () => { const n = LESSONS[idx() + 1]; return n && isOpen(n) ? n : null; };
+  let finished = false;   // the "Leçon terminée" screen is showing
+  function updateNav() {
+    const inSay = inSayTab();
+    q('#nav-prev-lesson').disabled = !prevLesson();
+    q('#nav-next-lesson').disabled = !nextLesson();
+    q('#nav-prev').disabled = !inSay && step === 0 && !finished;
+    q('#nav-next').disabled = !inSay && finished && !nextLesson();
+    q('#lesson-step-name').innerHTML = inSay ? '' : finished ? 'Leçon terminée · <i>lesson complete</i>'
+      : `${step + 1}/${STEPS.length} · ${STEPS[step]} · <i>${STEPS_EN[step]}</i>`;
+  }
+  const inSayTab = () => q('#lesson-tabs [data-tab="sayit"]').classList.contains('on');
+  q('#nav-prev').onclick = () => { if (inSayTab()) return tab('lesson'); if (finished) return goStep(STEPS.length - 1); if (step > 0) goStep(step - 1); };
+  q('#nav-next').onclick = () => {
+    if (inSayTab()) return tab('lesson');
+    if (finished) { const n = nextLesson(); if (n) open(n); return; }
+    if (step < STEPS.length - 1) goStep(step + 1); else celebrate();
+  };
+  q('#nav-prev-lesson').onclick = () => { const p = prevLesson(); if (p) open(p); };
+  q('#nav-next-lesson').onclick = () => { const n = nextLesson(); if (n) open(n); };
+  q('#lesson-steps').onclick = e => { const s = e.target.closest('[data-step]'); if (s) goStep(+s.dataset.step); };
+
   function goStep(n) {
-    step = n; db.set('at.' + L.week, n);
-    q('#lesson-steps').innerHTML = STEPS.map((s, i) => `<span class="${i < n ? 'done' : i === n ? 'now' : ''}" title="${s}"></span>`).join('');
+    step = n; finished = false; db.set('at.' + L.week, n);
+    q('#lesson-steps').innerHTML = STEPS.map((s, i) => `<span data-step="${i}" class="${i < n ? 'done' : i === n ? 'now' : ''}" title="${s} · ${STEPS_EN[i]}"></span>`).join('');
+    updateNav();
     panel.innerHTML = ''; foot.innerHTML = ''; onObj = null; clearMarks(); LESSON_SCENES.pose(svg, null); panel.scrollTop = 0;
     [stepScene, stepDialogue, stepCards, stepQuiz, stepSayIt][n]();
   }
@@ -217,7 +245,7 @@ const Lessons = (() => {
   }
   function wordCard(o) {
     const m = o.fr.match(/^(le|la|les|l'|un|une)\s?(.*)$/i);
-    const art = m ? m[1] : '', noun = m ? m[2] : o.fr, gender = /^(la|une)$/i.test(art) ? 'f' : 'm';
+    const art = m ? m[1] : '', noun = m ? m[2] : o.fr, gender = o.g || (/^(la|une)$/i.test(art) ? 'f' : 'm');
     const c = el('div', `word ${gender}`);
     c.innerHTML = `<div class="fr"><span class="art">${art}</span> ${noun}</div><div class="hint">${o.hint}</div><div class="en">${o.en}</div>`;
     c.querySelector('.fr').append(sayBtn(o.fr));
@@ -304,51 +332,89 @@ const Lessons = (() => {
       const Q = qs[qi];
       panel.append(el('p', 'qnum', `Question ${qi + 1}/${qs.length}`));
       heading(Q.prompt, Q.en);
+      // Every question can be retried: a wrong try never shows the answer, it explains what she DID pick.
+      // Only a right first try scores. Once it's right, she can still tap the other options to read about them.
+      let tries = 0, solved = false;
       if (Q.type === 'tap') {
-        onObj = (id, g) => { if (!id) return; onObj = null; g.classList.add(id === Q.answer ? 'right' : 'wrong'); glow(Q.answer, true); answered(id === Q.answer, Q, L.objects.find(o => o.id === Q.answer).fr); };
+        const note = el('div', 'feedback no'); note.hidden = true; panel.append(note);
+        onObj = (id, g) => {
+          if (!id || solved) return;
+          tries++;
+          if (id === Q.answer) { onObj = null; note.remove(); g.classList.add('right'); return solve(Q, L.objects.find(o => o.id === Q.answer).fr); }
+          svg.querySelectorAll('.obj.wrong').forEach(x => x.classList.remove('wrong'));
+          g.classList.add('wrong');
+          const o = L.objects.find(o => o.id === id) || { fr: '…', en: '' };
+          note.hidden = false;
+          note.innerHTML = `Pas tout à fait · not quite. That's <b>${nb(o.fr)}</b>, ${o.en}. Try again!`;
+          note.prepend(sayBtn(o.fr));
+          Voice.say(o.fr);
+        };
       } else if (Q.type === 'choice') {
         const opts = el('div', 'options');
-        shuffle(Q.options).forEach(o => {
-          const b = el('button', 'opt', nb(o));
+        shuffle(Q.options.map(o => typeof o === 'string' ? { t: o } : o)).forEach(o => {
+          const wrap = el('div', 'opt-wrap'), b = el('button', 'opt', nb(o.t)), why = el('div', 'opt-why');
+          why.hidden = true;
           b.onclick = () => {
-            opts.querySelectorAll('button').forEach(x => { x.disabled = true; if (x.dataset.v === Q.answer) x.classList.add('right'); });
-            if (o !== Q.answer) b.classList.add('wrong');
-            answered(o === Q.answer, Q, Q.answer);
+            const ok = o.t === Q.answer;
+            if (!solved) tries++;
+            b.classList.add(ok ? 'right' : 'wrong');
+            why.hidden = false;
+            why.innerHTML = (ok ? '✓ ' : '✗ ') + nb(o.why || explainPhrase(o.t));
+            why.prepend(sayBtn(o.t));
+            Voice.say(o.t);
+            if (ok && !solved) solve(Q, Q.answer, true);
           };
-          b.dataset.v = o; opts.append(b);
+          wrap.append(b, why); opts.append(wrap);
         });
         panel.append(opts);
+        panel.append(el('p', 'en small', 'Tap any answer to see why it is or isn\'t right.'));
       } else if (Q.type === 'order') {
-        const ans = el('div', 'tiles answer'), pool = el('div', 'tiles');
-        shuffle(Q.words.map((w, i) => ({ w, i }))).forEach(t => {
-          const b = el('button', 'tile', t.w);
+        // N slots; tapping a pool word fills the first empty slot. Vérifier marks each slot green or red.
+        // Green words stay put; tapping a red (or unchecked) word sends it back to the pool.
+        const ans = el('div', 'tiles answer slots'), pool = el('div', 'tiles');
+        const slots = Q.words.map(() => { const s = el('span', 'slot'); ans.append(s); return s; });
+        const refresh = () => { check.disabled = solved || slots.some(s => !s.firstChild); };
+        shuffle(Q.words).forEach(w => {
+          const b = el('button', 'tile', w);
           b.onclick = () => {
-            (b.parentNode === pool ? ans : pool).append(b);
-            check.disabled = ans.children.length !== Q.words.length;
+            if (b.classList.contains('right') || solved) return;
+            if (b.parentNode === pool) { const s = slots.find(s => !s.firstChild); if (s) s.append(b); }
+            else { b.classList.remove('wrong'); pool.append(b); }
+            refresh();
           };
           pool.append(b);
         });
         panel.append(ans, pool);
-        const check = next('Vérifier', () => {
-          const got = [...ans.children].map(b => b.textContent).join(' '), want = Q.words.join(' ');
-          ans.querySelectorAll('button').forEach(b => b.disabled = true); pool.remove();
-          ans.classList.add(got === want ? 'right' : 'wrong');
-          foot.innerHTML = '';
-          answered(got === want, Q, want);
+        const check = next('Vérifier · check', () => {
+          tries++;
+          let all = true;
+          slots.forEach((s, i) => { const b = s.firstChild, ok = b.textContent === Q.words[i]; b.classList.toggle('right', ok); b.classList.toggle('wrong', !ok); all = all && ok; });
+          if (all) { foot.innerHTML = ''; pool.remove(); hint.hidden = true; return solve(Q, Q.words.join(' ')); }
+          hint.hidden = false;
+          refresh();
         }, false);
+        const hint = el('p', 'en small', 'Green words are in the right place. Tap a red word to take it back, then try a new spot.');
+        hint.hidden = true; panel.append(hint);
+      }
+      function solve(Q, right, quiet) {
+        solved = true;
+        const ok = tries === 1;
+        score += ok ? 1 : 0;
+        if (Q.card) { box[Q.card] = ok ? Math.min(5, (box[Q.card] || 1) + 1) : 1; db.set('box', box); }
+        const fb = el('div', 'feedback ok', ok ? '🥂 <b>Exact !</b> Spot on, first time.' : '🥂 <b>Voilà !</b> You got there.');
+        fb.append(sayBtn(right));
+        if (Q.why && Q.type !== 'choice') fb.append(el('div', 'why', nb(Q.why)));
+        panel.append(fb);
+        fb.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (!quiet) Voice.say(right);
+        qi++;
+        next(qi < qs.length ? 'Suivant · next ›' : 'Résultat · results ›', ask);
       }
     };
-    const answered = (ok, Q, right) => {
-      score += ok ? 1 : 0;
-      if (Q.card) { box[Q.card] = ok ? Math.min(5, (box[Q.card] || 1) + 1) : 1; db.set('box', box); }
-      const fb = el('div', `feedback ${ok ? 'ok' : 'no'}`, ok ? '🥂 <b>Exact !</b>' : `Pas tout à fait… <b>${nb(right)}</b>`);
-      fb.append(sayBtn(right));
-      if (Q.why) fb.append(el('div', 'why', nb(Q.why)));
-      panel.append(fb);
-      fb.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      Voice.say(right);
-      qi++;
-      next(qi < qs.length ? 'Suivant ›' : 'Résultat ›', ask);
+    // English for a phrase from any lesson's cards (review questions have plain string options)
+    const explainPhrase = t => {
+      for (const l of LESSONS) for (const c of l.cards) if (c.fr === t) return `« ${c.fr} » means “${c.en}”.`;
+      return '';
     };
     const finish = () => {
       const done = db.get('done', {}); done[L.week] = Math.max(done[L.week] || 0, score); db.set('done', done);
@@ -377,12 +443,17 @@ const Lessons = (() => {
   }
   function celebrate() {
     db.set('at.' + L.week, 0);
-    panel.innerHTML = ''; foot.innerHTML = '';
-    q('#lesson-steps').innerHTML = STEPS.map(() => '<span class="done"></span>').join('');
-    heading('Leçon terminée ! 🎉', `See you next week for Lesson ${L.week + 1}. Your phrases are kept in the phrasebook for the trip.`);
+    panel.innerHTML = ''; foot.innerHTML = ''; onObj = null; clearMarks(); zoomTo(FULL);
+    finished = true;
+    q('#lesson-steps').innerHTML = STEPS.map((s, i) => `<span data-step="${i}" class="done" title="${s} · ${STEPS_EN[i]}"></span>`).join('');
+    updateNav();
+    const n = nextLesson();
+    heading('Leçon terminée ! 🎉', n ? 'Lesson complete! The next lesson is ready when you are. Your phrases are kept in the phrasebook for the trip.'
+      : `Lesson complete! See you next week for Lesson ${L.week + 1}. Your phrases are kept in the phrasebook for the trip.`);
     const fizz = el('div', 'fizz-burst'); for (let i = 0; i < 24; i++) { const s = el('span'); s.style.left = Math.random() * 100 + '%'; s.style.animationDelay = Math.random() * 1.2 + 's'; s.style.width = s.style.height = 4 + Math.random() * 10 + 'px'; fizz.append(s); }
     panel.append(fizz);
-    next('Retour au menu', close);
+    if (n) { const m = el('button', 'btn ghost', '⌂ Menu'); m.onclick = close; foot.append(m); next(`Leçon ${n.week} · next lesson ⏭`, () => open(n)); }
+    else next('⌂ Retour au menu · back to the menu', close);
   }
 
   /* ---------- The À dire list (its own tab) ---------- */
