@@ -55,6 +55,11 @@ function drawFork(ctx, t, light, carP, S, L, dt = 1 / 60) {
   ctx.save(); ctx.translate(800, 450); ctx.scale(z, z); ctx.translate(-800, -450);
   drawCover(ctx, A.fwdFork, 1.0, 0.5, 0.5);
   const q = forkPoint(carP), yaw = forkYaw(t);
+  // (user 27 Nov) the car starts further left, in the middle of the track, and 20% bigger; both ease
+  // away as it climbs, gone by the cut to their faces, so from the bend on it's exactly as before
+  // (w: 1 at the start, 0 at the cut)
+  const w = U.ease(U.clamp((q.y - FORK_CUT[0]) / (FORK_PATH[0][1] - FORK_CUT[0])));
+  q.x -= 95 * w; q.s *= 1 + 0.2 * w;
   const turned = q.y < FORK_CUT[1] + 30;            // past the switch (made while we're on the faces)
   // the front axle on the track (it sits 40 px above the track point in the square-on picture,
   // which is where that picture was tuned to sit in the ruts), with a little bounce
@@ -274,6 +279,26 @@ function frontBackdrop(ctx, S, bg, light) {
   mist(ctx, 0.3, 250);
 }
 
+/* The full night shading of a close-up (the same four passes the backdrop always had). */
+function faceShade(c, light) {
+  darken(c, (1 - light) * 0.75); nightShade(c, light);
+  darken(c, (1 - light) * 0.25); nightShade(c, light + 0.2);
+}
+/* Roughly how bright faceShade leaves things (0..1), and the light level that comes out k times brighter. */
+function shadeFactor(l) {
+  const dk = a => 1 - 0.82 * U.clamp(a), ns = v => 1 - Math.pow(U.clamp((0.45 - v) / 0.42), 1.15) * 0.8;
+  return dk((1 - l) * 0.75) * ns(l) * dk((1 - l) * 0.25) * ns(l + 0.2);
+}
+function liftLight(l, k) {
+  if (k <= 1) return l;
+  const goal = Math.min(1, shadeFactor(l) * k);
+  let lo = l, hi = 1;
+  for (let i = 0; i < 20; i++) { const m = (lo + hi) / 2; if (shadeFactor(m) < goal) lo = m; else hi = m; }
+  return lo;
+}
+let _closeC = null;
+const closeScratch = () => _closeC || (_closeC = makeCanvas(W, H));
+
 /* Close-up on the faces using the front-on car picture: the windscreen fills the frame.
    o: { img, bg: 'vines'|'forest'|'sunlit', light, rain, zoom(p), shake(t), thunder, lurch(t) } */
 function frontCloseShot(o) {
@@ -282,19 +307,34 @@ function frontCloseShot(o) {
     if (o.thunder) once(L, 'thunder', t > 0.05, () => { flash(L, t); SFX.thunder(1); });
     const sh = o.shake ? o.shake(t) : 0, z = o.zoom(p);
     frontBackdrop(ctx, S, o.bg || 'vines', light);
-    // o.match (Batch 3): the car and the faces get the same darkening as the scene behind them,
-    // instead of staying lit, so they sit in the same dark
-    if (!o.match) { darken(ctx, (1 - light) * 0.75); nightShade(ctx, light); }
-    ctx.save();
-    ctx.translate(800 + (Math.random() - .5) * sh, 470 + Math.sin(t * 19) * 5 * (o.bob ?? 1) + (Math.random() - .5) * sh);
-    if (o.lurch) ctx.rotate(o.lurch(t));
-    ctx.scale(z, z);
-    ctx.drawImage(A[o.img], -575, -262);      // centred on the faces behind the windscreen
-    drawCarMud(ctx, A[o.img], 'front', S.dirt, -575, -262);
-    ctx.restore();
-    if (o.match) { darken(ctx, (1 - light) * 0.75); nightShade(ctx, light); }
-    darken(ctx, (1 - light) * 0.25);
-    nightShade(ctx, light + 0.2);                     // the faces stay readable, but it's night on them too
+    const jx = (Math.random() - .5) * sh, jy = (Math.random() - .5) * sh;   // one shake per frame (placeCar may run twice)
+    const placeCar = (c, mud = true) => {
+      c.translate(800 + jx, 470 + Math.sin(t * 19) * 5 * (o.bob ?? 1) + jy);
+      if (o.lurch) c.rotate(o.lurch(t));
+      c.scale(z, z);
+      c.drawImage(A[o.img], -575, -262);      // centred on the faces behind the windscreen
+      if (mud) drawCarMud(c, A[o.img], 'front', S.dirt, -575, -262);
+    };
+    if (o.match) {
+      // o.match (Batch 3): the car and the faces are darkened like the scene behind them, so they sit in
+      // the same dark, but lifted by o.faceLift (×1.2 = 20% brighter, user 27 Nov) so the faces read.
+      // The car is darkened on its own scratch canvas at a slightly higher light level.
+      faceShade(ctx, light);
+      const c = closeScratch(), x = c.getContext('2d');
+      x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
+      x.clearRect(0, 0, W, H);
+      x.save(); placeCar(x); x.restore();
+      faceShade(x, liftLight(light, o.faceLift ?? 1));
+      x.globalCompositeOperation = 'destination-in';            // keep only the car (the shading filled the whole canvas)
+      x.save(); placeCar(x, false); x.restore();      // the car's outline only (the mud lies inside it anyway)
+      x.globalCompositeOperation = 'source-over';
+      ctx.drawImage(c, 0, 0);
+    } else {
+      darken(ctx, (1 - light) * 0.75); nightShade(ctx, light);
+      ctx.save(); placeCar(ctx); ctx.restore();
+      darken(ctx, (1 - light) * 0.25);
+      nightShade(ctx, light + 0.2);                   // the faces stay readable, but it's night on them too
+    }
     if (light > 1) sunshine(ctx, light - 1);
     drawRain(ctx, t + S.time, o.rain);
     if (L.flash != null) drawLightning(ctx, t - L.flash, L.flashSeed);
@@ -378,7 +418,7 @@ function forestGlimpse(ctx, k) {
 }
 
 /* Shot 6: the cut-away to the two of them through the windscreen, worried, bumping up the hill. */
-const FORK_FACES = frontCloseShot({ dur: 0.85, img: 'carFront', light: 0.18, match: true, rain: 0.85, shake: () => 5, zoom: p => U.lerp(2.2, 2.35, p),
+const FORK_FACES = frontCloseShot({ dur: 0.85, img: 'carFront', light: 0.18, match: true, faceLift: 1.2, rain: 0.85, shake: () => 5, zoom: p => U.lerp(2.2, 2.35, p),
   lurch: t => Math.sin(t * 6) * 0.025 });
 
 const SHOTS = [
@@ -534,7 +574,7 @@ const SHOTS = [
   },
   { // 9. Two shocked faces: the car lurches to a stop, nose down (Batch 3: as dark as the forest around them)
     name: 'faces-brake', dur: 1.6, dirt: 0.9,
-    draw: frontCloseShot({ dur: 1.6, img: 'frontShock', bg: 'forest', light: 0.1, match: true, rain: 0.9, shake: t => 16 * Math.exp(-t * 2), zoom: p => 1.55 + p * 0.12, bob: 0,
+    draw: frontCloseShot({ dur: 1.6, img: 'frontShock', bg: 'forest', light: 0.1, match: true, faceLift: 1.2, rain: 0.9, shake: t => 16 * Math.exp(-t * 2), zoom: p => 1.55 + p * 0.12, bob: 0,
       lurch: t => Math.sin(t * 9) * 0.02 * Math.exp(-t * 2.5) }),
   },
   // (Batch 3: 'inside-chairs', the chair backs seen from inside, was removed.)
@@ -565,16 +605,17 @@ const SHOTS = [
   { // 11. Smiles (Batch 3: darkened with the forest around them)
     name: 'faces-smile', dur: 3, dirt: 1,
     enter: S => { SFX.setEngine(0, 0.5); SFX.setRain(0.4); },
-    draw: frontCloseShot({ dur: 3, img: 'frontSmile', bg: 'forest', light: 0.16, match: true, rain: 0.25, zoom: () => 2.05, bob: 0 }),   // static
+    draw: frontCloseShot({ dur: 3, img: 'frontSmile', bg: 'forest', light: 0.16, match: true, faceLift: 1.2, rain: 0.25, zoom: () => 2.05, bob: 0 }),   // static
   },
   { // 12. Side, from the same spot as shot 10, still in the forest: the storm clears and it brightens;
     // sunlight and a sliver of open sky at the right edge hint at what's beyond; birdsong.
     // Batch 3: moved back into the woods (the full view waits for shot 14), 3.5 s, the brightness
     // curve as before (it ends where the old shot was at 3.5 s).
-    name: 'side-open', fy: 0.95, dur: 3.5, dirt: 1,
+    // (user 27 Nov: +3 s held at full brightness, a key moment: 6.5 s in all)
+    name: 'side-open', fy: 0.95, dur: 6.5, dirt: 1,
     enter: S => { SFX.setRain(0.05); setTimeout(() => SFX.birds(true), 1500); },
     draw: (ctx, t, dt, S, L) => {
-      const p = t / 4.8, light = U.lerp(0.12, 1.15, U.ease(p));        // from near dark to a clearing sky, not yet full sun
+      const p = Math.min(t, 3.5) / 4.8, light = U.lerp(0.12, 1.15, U.ease(p));   // near dark → clearing sky by 3.5 s, then held
       ctx.save();
       forestStopFrame(ctx);
       drawSideWorld(ctx, { scroll: S.scroll, light, mode: 'forest' });
@@ -671,8 +712,9 @@ const SHOTS = [
       // stands there, a step behind them, feet on that grass; drawn a little under true scale so it stays modest)
       // nearer the camera than the couple: bigger, its feet below the bottom edge and partly cut off at the right,
       // like something in the foreground
-      // (user: same place across the frame, 15% smaller, dropped by a quarter of its height)
-      const m = h * 0.595, cx = 1330, gy = VIEW.bottom + h * 0.16;
+      // (user: same place across the frame, 15% smaller, dropped by a quarter of its height;
+      //  then 27 Nov: another 20% smaller and dropped straight down a bit more, the feet well out of sight)
+      const m = h * 0.595 * 0.8, cx = 1330, gy = VIEW.bottom + h * 0.2;
       drawSetTable(ctx, cx, gy - 0.12 * m, m * 0.9);                         // 0.75 m further: a touch higher, smaller
       drawSetChair(ctx, cx - SET.chairZ * m * 1.15, gy, m, 1, 'back');
       drawSetChair(ctx, cx + SET.chairZ * m * 1.15, gy, m, 1, 'back');
