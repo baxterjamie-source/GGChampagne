@@ -7,7 +7,7 @@ const LESSONS = [
   {
     week: 0, unlock: '2026-12-25T08:00:00', scene: 'terrasse', music: 'accordion',
     titleFr: 'Bonsoir !', titleEn: 'Greetings and thank-yous',
-    dialogueView: { x: 330, y: 225, w: 640, h: 400 },
+    dialogueView: { x: 270, y: 150, w: 730, h: 456 },
 
     // Step 1: the scene. Tappable things, each linked to a phrase.
     objects: [
@@ -20,14 +20,15 @@ const LESSONS = [
       { id: 'verre', fr: 'la flûte', en: 'the champagne flute', hint: 'lah FLÜT', link: { fr: 'Santé !', en: 'Cheers! (literally "health")' } },
     ],
 
-    // Step 2: a short exchange in the scene. who: 'serveur' | 'vous'
+    // Step 2: a short exchange in the scene. who: 'serveur' | 'vous'. pose: which pictures to show from that line on
+    // (sj: table | ordering | cheers; serveur: tray | bow). Each step starts on { sj: 'table', serveur: 'tray' }.
     dialogue: [
-      { who: 'serveur', fr: 'Bonsoir, madame. Bonsoir, monsieur !', en: 'Good evening, madam. Good evening, sir!' },
+      { who: 'serveur', fr: 'Bonsoir, madame. Bonsoir, monsieur !', en: 'Good evening, madam. Good evening, sir!', pose: { sj: 'ordering', serveur: 'tray' } },
       { who: 'vous', fr: "Bonsoir ! Deux coupes de champagne, s'il vous plaît.", en: 'Good evening! Two glasses of champagne, please.', tip: 'In a bar, a glass of champagne is "une coupe", whatever the shape of the glass.' },
-      { who: 'serveur', fr: 'Voilà, madame.', en: 'Here you are, madam.' },
+      { who: 'serveur', fr: 'Voilà, madame.', en: 'Here you are, madam.', pose: { sj: 'table', serveur: 'bow' } },
       { who: 'vous', fr: 'Merci beaucoup !', en: 'Thank you very much!' },
       { who: 'serveur', fr: 'Je vous en prie. Bonne soirée !', en: "You're welcome. Have a lovely evening!" },
-      { who: 'vous', fr: 'Santé !', en: 'Cheers!' },
+      { who: 'vous', fr: 'Santé !', en: 'Cheers!', pose: { sj: 'cheers' } },
     ],
 
     // Step 3: phrase cards.

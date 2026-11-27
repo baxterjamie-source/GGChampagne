@@ -151,6 +151,7 @@ const Lessons = (() => {
     q('#lesson-title').innerHTML = `Leçon ${L.week} · <i>${nb(L.titleFr)}</i>`;
     sceneBox.innerHTML = LESSON_SCENES[L.scene]();
     svg = sceneBox.querySelector('svg');
+    LESSON_SCENES.prepare(svg);   // keys the green-screen layers, then shows them
     svg.addEventListener('click', e => { const g = e.target.closest('.obj'); if (onObj) onObj(g ? g.dataset.id : null, g); });
     vb = { ...FULL }; setVB();
     showMusic(); musicBtn.hidden = !L.music;
@@ -178,7 +179,7 @@ const Lessons = (() => {
   function goStep(n) {
     step = n; db.set('at.' + L.week, n);
     q('#lesson-steps').innerHTML = STEPS.map((s, i) => `<span class="${i < n ? 'done' : i === n ? 'now' : ''}" title="${s}"></span>`).join('');
-    panel.innerHTML = ''; foot.innerHTML = ''; onObj = null; clearMarks(); panel.scrollTop = 0;
+    panel.innerHTML = ''; foot.innerHTML = ''; onObj = null; clearMarks(); LESSON_SCENES.pose(svg, null); panel.scrollTop = 0;
     [stepScene, stepDialogue, stepCards, stepQuiz, stepSayIt][n]();
   }
   function next(label = 'Continuer ›', fn = () => goStep(step + 1), enabled = true) {
@@ -245,6 +246,7 @@ const Lessons = (() => {
       b.scrollIntoView({ behavior: 'smooth', block: 'end' });
       const waiter = obj('serveur');
       if (waiter) waiter.classList.toggle('talking', d.who === 'serveur');
+      if (d.pose) LESSON_SCENES.pose(svg, d.pose);
       Voice.say(d.fr);
       if (i >= L.dialogue.length) btn.textContent = 'Continuer ›';
     }

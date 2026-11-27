@@ -224,6 +224,18 @@ html, body {
 @keyframes twinkle { 50% { opacity: .55; } }
 .fizz { animation: fizz 1.5s linear infinite; }
 @keyframes fizz { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-38px); opacity: 0; } }
+/* painted scenes (svg.art): the pictures sit outside the .obj groups; each .obj lights a soft spotlight (.hl) */
+.art .obj.glow, .art .obj.right, .art .obj.wrong { animation: none; filter: none; }
+.art .hl { fill: url(#hl-gold); opacity: 0; mix-blend-mode: screen; pointer-events: none; transition: opacity .3s; }
+.art .obj.glow .hl { animation: hlpulse 1.6s ease-in-out infinite; }
+@keyframes hlpulse { 0%,100% { opacity: .15; } 50% { opacity: 1; } }
+.art .obj.right .hl { fill: url(#hl-green); opacity: 1; animation: none; }
+.art .obj.wrong .hl { fill: url(#hl-red); opacity: 1; animation: none; }
+.art .pose { opacity: 0; transition: opacity .6s ease; pointer-events: none; }
+.art .pose.on { opacity: 1; }
+.art .waiter { transform-box: fill-box; transform-origin: 50% 100%; }
+.art:has(.obj[data-id="serveur"].talking) .waiter { animation: nod .5s ease-in-out 3; }
+@keyframes nod { 50% { transform: rotate(-1.2deg) translateY(-2px); } }
 .lesson-scene.popped { animation: popped .6s ease; }
 @keyframes popped { 40% { transform: scale(1.03); box-shadow: 0 0 40px rgba(242,169,0,.6); } }
 
