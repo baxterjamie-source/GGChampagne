@@ -187,28 +187,37 @@ const Lessons = (() => {
     const inSay = inSayTab();
     q('#nav-prev-lesson').disabled = !prevLesson();
     q('#nav-next-lesson').disabled = !nextLesson();
-    q('#nav-prev').disabled = !inSay && step === 0 && !finished;
     q('#nav-next').disabled = !inSay && finished && !nextLesson();
     q('#lesson-step-name').innerHTML = inSay ? '' : finished ? 'Leçon terminée · <i>lesson complete</i>'
       : `${step + 1}/${STEPS.length} · ${STEPS[step]} · <i>${STEPS_EN[step]}</i>`;
   }
   const inSayTab = () => q('#lesson-tabs [data-tab="sayit"]').classList.contains('on');
-  q('#nav-prev').onclick = () => { if (inSayTab()) return tab('lesson'); if (finished) return goStep(STEPS.length - 1); if (step > 0) goStep(step - 1); };
+  // ‹ › move ONE item at a time: each thing in the scene, each line of the dialogue, flip / unflip / next card,
+  // each quiz question. Each step sets stepNav = { next(), prev() }, returning false at its ends; then ‹ › cross
+  // into the neighbouring step (going back lands on that step's last item).
+  let stepNav = null;
+  q('#nav-prev').onclick = () => {
+    if (inSayTab()) return tab('lesson');
+    if (finished) return goStep(STEPS.length - 1, true);
+    if (stepNav && stepNav.prev()) return;
+    if (step > 0) goStep(step - 1, true);
+  };
   q('#nav-next').onclick = () => {
     if (inSayTab()) return tab('lesson');
     if (finished) { const n = nextLesson(); if (n) open(n); return; }
+    if (stepNav && stepNav.next()) return;
     if (step < STEPS.length - 1) goStep(step + 1); else celebrate();
   };
   q('#nav-prev-lesson').onclick = () => { const p = prevLesson(); if (p) open(p); };
   q('#nav-next-lesson').onclick = () => { const n = nextLesson(); if (n) open(n); };
   q('#lesson-steps').onclick = e => { const s = e.target.closest('[data-step]'); if (s) goStep(+s.dataset.step); };
 
-  function goStep(n) {
-    step = n; finished = false; db.set('at.' + L.week, n);
+  function goStep(n, atEnd = false) {
+    step = n; finished = false; stepNav = null; db.set('at.' + L.week, n);
     q('#lesson-steps').innerHTML = STEPS.map((s, i) => `<span data-step="${i}" class="${i < n ? 'done' : i === n ? 'now' : ''}" title="${s} · ${STEPS_EN[i]}"></span>`).join('');
     updateNav();
     panel.innerHTML = ''; foot.innerHTML = ''; onObj = null; clearMarks(); LESSON_SCENES.pose(svg, null); panel.scrollTop = 0;
-    [stepScene, stepDialogue, stepCards, stepQuiz, stepSayIt][n]();
+    [stepScene, stepDialogue, stepCards, stepQuiz, stepSayIt][n](atEnd);
   }
   function next(label = 'Continuer ›', fn = () => goStep(step + 1), enabled = true) {
     const b = el('button', 'btn', label);
@@ -219,29 +228,35 @@ const Lessons = (() => {
   function heading(fr, en) { panel.append(el('p', 'lead', nb(fr))); if (en) panel.append(el('p', 'en', en)); }
 
   /* ---------- 1. La scène: tap the glowing things ---------- */
-  function stepScene() {
+  function stepScene(atEnd) {
     zoomTo(FULL);
     const seen = new Set(), objs = L.objects;
+    let cur = -1, popped = false;   // cur: the thing shown, -1 = the whole scene
     objs.forEach(o => glow(o.id, true));
     const btn = next('Continuer ›', undefined, false);
     const intro = () => {
-      panel.innerHTML = '';
-      heading('Touchez les objets qui brillent ✨', `Tap the glowing things to learn their names · <b>${seen.size}/${objs.length}</b>`);
+      cur = -1; zoomTo(FULL); panel.innerHTML = '';
+      heading('Touchez les objets qui brillent ✨', `Tap the glowing things to learn their names, or use › to go through them one by one · <b>${seen.size}/${objs.length}</b>`);
     };
-    intro();
-    onObj = (id, g) => {
-      const o = objs.find(o => o.id === id);
-      if (!o) { zoomTo(FULL); intro(); return; }
-      seen.add(id); g.classList.remove('glow'); g.classList.add('seen');
-      zoomTo(boxFor(g));
+    const showObj = (i, quiet) => {
+      cur = i;
+      const o = objs[i], g = obj(o.id);
+      seen.add(o.id);
+      if (g) { g.classList.remove('glow'); g.classList.add('seen'); zoomTo(boxFor(g)); }
       panel.innerHTML = '';
       panel.append(wordCard(o));
       const back = el('button', 'link-btn', `← Toute la scène · ${seen.size}/${objs.length}`);
-      back.onclick = () => { zoomTo(FULL); intro(); };
+      back.onclick = intro;
       panel.append(back);
-      Voice.say(o.fr);
-      if (seen.size === objs.length) { btn.disabled = false; sceneBox.classList.add('popped'); }
+      if (!quiet) Voice.say(o.fr);
+      if (seen.size === objs.length) { btn.disabled = false; if (!popped && !quiet) sceneBox.classList.add('popped'); popped = true; }
     };
+    onObj = id => { const i = objs.findIndex(o => o.id === id); if (i < 0) intro(); else showObj(i); };
+    stepNav = {
+      next: () => { if (cur >= objs.length - 1) return false; showObj(cur + 1); return true; },
+      prev: () => { if (cur > 0) { showObj(cur - 1); return true; } if (cur === 0) { intro(); return true; } return false; },
+    };
+    if (atEnd) { objs.forEach(o => { seen.add(o.id); glow(o.id, false); }); showObj(objs.length - 1, true); } else intro();
   }
   function wordCard(o) {
     const m = o.fr.match(/^(le|la|les|l'|un|une)\s?(.*)$/i);
@@ -259,51 +274,78 @@ const Lessons = (() => {
   }
 
   /* ---------- 2. Le dialogue ---------- */
-  function stepDialogue() {
+  function stepDialogue(atEnd) {
     zoomTo(L.dialogueView || FULL);
     panel.append(el('p', 'en small', 'Tap a line to see the English.'));
     const list = el('div', 'chat'); panel.append(list);
-    let i = 0;
-    const btn = next('Suivant ›', () => { if (i < L.dialogue.length) addLine(); else goStep(step + 1); });
-    function addLine() {
-      const d = L.dialogue[i++];
+    const D = L.dialogue;
+    let i = 0;   // lines shown
+    const btn = next('Suivant ›', () => { if (i < D.length) addLine(); else goStep(step + 1); });
+    // the scene as it should look after line i: poses replayed from the start, the waiter nods if he spoke last
+    function sync(animate) {
+      LESSON_SCENES.pose(svg, null);
+      for (let k = 0; k < i; k++) if (D[k].pose) LESSON_SCENES.pose(svg, D[k].pose);
+      const waiter = obj('serveur');
+      if (waiter) { waiter.classList.remove('talking'); if (animate && D[i - 1].who === 'serveur') { void waiter.getBBox(); waiter.classList.add('talking'); } }
+      btn.textContent = i >= D.length ? 'Continuer ›' : 'Suivant ›';
+      if (list.lastElementChild) list.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+    function addLine(quiet) {
+      const d = D[i++];
       const b = el('div', `bubble ${d.who}`, `<span class="who">${WHO[d.who] || d.who}</span><span class="fr">${nb(d.fr)}</span><span class="en">${d.en}</span>${d.tip ? `<span class="tip">💡 ${d.tip}</span>` : ''}`);
       b.querySelector('.who').append(sayBtn(d.fr));
       b.onclick = () => b.classList.toggle('show-en');
       list.append(b);
-      b.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      const waiter = obj('serveur');
-      if (waiter) waiter.classList.toggle('talking', d.who === 'serveur');
-      if (d.pose) LESSON_SCENES.pose(svg, d.pose);
-      Voice.say(d.fr);
-      if (i >= L.dialogue.length) btn.textContent = 'Continuer ›';
+      if (!quiet) { sync(true); Voice.say(d.fr); }
     }
-    addLine();
+    stepNav = {
+      next: () => { if (i >= D.length) return false; addLine(); return true; },
+      prev: () => { if (i <= 1) return false; list.lastElementChild.remove(); i--; sync(false); return true; },
+    };
+    if (atEnd) { while (i < D.length) addLine(true); sync(false); } else addLine();
   }
 
   /* ---------- 3. Les cartes (Leitner box per card) ---------- */
-  function stepCards() {
+  function stepCards(atEnd) {
     zoomTo(FULL);
     const queue = L.cards.map((c, i) => ({ c, id: `${L.week}:${i}` }));
+    const hist = [];   // cards already passed, for ‹
     const box = db.get('box', {});
+    if (atEnd) while (queue.length > 1) hist.push(queue.shift());
+    let card = null, flip = null, unflip = null;
     const show = () => {
-      panel.innerHTML = ''; foot.innerHTML = '';
+      panel.innerHTML = ''; foot.innerHTML = ''; card = null;
       if (!queue.length) { heading('Bravo ! 🥂', 'All the cards are done.'); next(); return; }
       const { c, id } = queue[0];
       panel.append(el('p', 'en small', `${queue.length} card${queue.length > 1 ? 's' : ''} to go`));
-      const card = el('div', 'flip');
+      card = el('div', 'flip');
       card.innerHTML = `<div class="face front"><span class="emoji">${c.emoji || ''}</span><span class="en">${c.en}</span><span class="tapme">Touchez pour retourner · tap to flip</span></div>
         <div class="face back"><span class="fr">${nb(c.fr)}</span><span class="hint">${c.hint}</span>${c.tip ? `<span class="tip">💡 ${c.tip}</span>` : ''}</div>`;
-      card.querySelector('.back').prepend(sayBtn(c.fr));
+      card.querySelector('.back').prepend(sayBtn(c.fr, '🔊 Écouter'));
       panel.append(card);
-      card.onclick = () => {
+      flip = quiet => {
         if (card.classList.contains('flipped')) return;
-        card.classList.add('flipped'); Voice.say(c.fr);
-        const again = el('button', 'btn ghost', '↺ Encore'), know = el('button', 'btn', '✓ Je sais');
+        card.classList.add('flipped'); if (quiet !== true) Voice.say(c.fr);
+        // "see again later" puts the card at the back of the pile; "I know it" moves it up a Leitner box
+        const again = el('button', 'btn ghost', '🔁 Plus tard · <small>see again later</small>'), know = el('button', 'btn', '✓ Je sais · <small>I know it</small>');
         again.onclick = () => { box[id] = 1; db.set('box', box); queue.push(queue.shift()); show(); };
-        know.onclick = () => { box[id] = Math.min(5, (box[id] || 1) + 1); db.set('box', box); queue.shift(); show(); };
+        know.onclick = () => { box[id] = Math.min(5, (box[id] || 1) + 1); db.set('box', box); hist.push(queue.shift()); show(); };
         foot.append(again, know);
       };
+      unflip = () => { card.classList.remove('flipped'); foot.innerHTML = ''; };
+      card.onclick = flip;
+    };
+    stepNav = {
+      next: () => {
+        if (!card) return false;
+        if (!card.classList.contains('flipped')) flip(); else { hist.push(queue.shift()); show(); }
+        return true;
+      },
+      prev: () => {
+        if (card && card.classList.contains('flipped')) { unflip(); return true; }
+        if (hist.length) { queue.unshift(hist.pop()); show(); flip(true); return true; }   // back to the last card as she left it: flipped
+        return false;
+      },
     };
     show();
   }
@@ -320,14 +362,21 @@ const Lessons = (() => {
       options: shuffle([c.fr, ...shuffle(old.filter(o => o.c !== c)).slice(0, 2).map(o => o.c.fr)]), answer: c.fr,
     }));
   }
-  function stepQuiz() {
+  function stepQuiz(atEnd) {
     const review = reviewQuestions(), qs = [...L.quiz];
     review.forEach((r, i) => qs.splice(1 + i * 2, 0, r));   // interleave the review questions
-    let qi = 0, score = 0;
+    // qi: the question showing (qs.length = the results). res[i]: true = right first time, false = needed more tries
+    let qi = atEnd ? qs.length - 1 : 0;
+    const res = [];
     const box = db.get('box', {});
-    const flutes = () => qs.map((_, i) => `<span class="${i < qi ? (i < score ? 'full' : '') : 'todo'}">🥂</span>`).join('');
+    const score = () => res.filter(Boolean).length;
+    const flutes = () => qs.map((_, i) => `<span class="${res[i] ? 'full' : res[i] === false ? '' : 'todo'}">🥂</span>`).join('');
+    stepNav = {
+      next: () => { if (qi >= qs.length) return false; qi++; ask(); return true; },
+      prev: () => { if (qi <= 0) return false; qi--; ask(); return true; },
+    };
     const ask = () => {
-      onObj = null; clearMarks(); zoomTo(FULL); panel.innerHTML = ''; foot.innerHTML = '';
+      onObj = null; clearMarks(); zoomTo(FULL); panel.innerHTML = ''; foot.innerHTML = ''; panel.scrollTop = 0;
       if (qi >= qs.length) return finish();
       const Q = qs[qi];
       panel.append(el('p', 'qnum', `Question ${qi + 1}/${qs.length}`));
@@ -371,15 +420,25 @@ const Lessons = (() => {
       } else if (Q.type === 'order') {
         // N slots; tapping a pool word fills the first empty slot. Vérifier marks each slot green or red.
         // Green words stay put; tapping a red (or unchecked) word sends it back to the pool.
+        // The tiles carry no punctuation and no capital (both would give words away): the commas and the final
+        // « ? » or « . » sit fixed between the slots, and whichever word lands in the first slot gets the capital.
+        const parts = Q.words.map(w => { const m = w.match(/^(.*?)\s*([,.;:!?…]+)?$/); return { w: m[1], p: m[2] || '' }; });
+        const first = parts[0].w;
+        const cap = s => s.charAt(0).toUpperCase() + s.slice(1), low = s => s.charAt(0).toLowerCase() + s.slice(1);
+        const label = (w, k) => k === 0 ? cap(w) : w === first ? low(w) : w;
         const ans = el('div', 'tiles answer slots'), pool = el('div', 'tiles');
-        const slots = Q.words.map(() => { const s = el('span', 'slot'); ans.append(s); return s; });
-        const refresh = () => { check.disabled = solved || slots.some(s => !s.firstChild); };
-        shuffle(Q.words).forEach(w => {
-          const b = el('button', 'tile', w);
+        const slots = parts.map(({ p }) => { const s = el('span', 'slot'); ans.append(s); if (p) ans.append(el('span', 'punct', p)); return s; });
+        const refresh = () => {
+          slots.forEach((s, k) => { if (s.firstChild) s.firstChild.textContent = label(s.firstChild.dataset.w, k); });
+          check.disabled = solved || slots.some(s => !s.firstChild);
+        };
+        shuffle(parts).forEach(({ w }) => {
+          const b = el('button', 'tile', label(w, -1));
+          b.dataset.w = w;
           b.onclick = () => {
             if (b.classList.contains('right') || solved) return;
             if (b.parentNode === pool) { const s = slots.find(s => !s.firstChild); if (s) s.append(b); }
-            else { b.classList.remove('wrong'); pool.append(b); }
+            else { b.classList.remove('wrong'); b.textContent = label(w, -1); pool.append(b); }
             refresh();
           };
           pool.append(b);
@@ -388,7 +447,7 @@ const Lessons = (() => {
         const check = next('Vérifier · check', () => {
           tries++;
           let all = true;
-          slots.forEach((s, i) => { const b = s.firstChild, ok = b.textContent === Q.words[i]; b.classList.toggle('right', ok); b.classList.toggle('wrong', !ok); all = all && ok; });
+          slots.forEach((s, i) => { const b = s.firstChild, ok = b.dataset.w === parts[i].w; b.classList.toggle('right', ok); b.classList.toggle('wrong', !ok); all = all && ok; });
           if (all) { foot.innerHTML = ''; pool.remove(); hint.hidden = true; return solve(Q, Q.words.join(' ')); }
           hint.hidden = false;
           refresh();
@@ -399,16 +458,17 @@ const Lessons = (() => {
       function solve(Q, right, quiet) {
         solved = true;
         const ok = tries === 1;
-        score += ok ? 1 : 0;
-        if (Q.card) { box[Q.card] = ok ? Math.min(5, (box[Q.card] || 1) + 1) : 1; db.set('box', box); }
+        if (res[qi] === undefined) {   // only the first time through counts
+          res[qi] = ok;
+          if (Q.card) { box[Q.card] = ok ? Math.min(5, (box[Q.card] || 1) + 1) : 1; db.set('box', box); }
+        }
         const fb = el('div', 'feedback ok', ok ? '🥂 <b>Exact !</b> Spot on, first time.' : '🥂 <b>Voilà !</b> You got there.');
         fb.append(sayBtn(right));
         if (Q.why && Q.type !== 'choice') fb.append(el('div', 'why', nb(Q.why)));
         panel.append(fb);
         fb.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         if (!quiet) Voice.say(right);
-        qi++;
-        next(qi < qs.length ? 'Suivant · next ›' : 'Résultat · results ›', ask);
+        next(qi < qs.length - 1 ? 'Suivant · next ›' : 'Résultat · results ›', () => { qi++; ask(); });
       }
     };
     // English for a phrase from any lesson's cards (review questions have plain string options)
@@ -417,9 +477,9 @@ const Lessons = (() => {
       return '';
     };
     const finish = () => {
-      const done = db.get('done', {}); done[L.week] = Math.max(done[L.week] || 0, score); db.set('done', done);
-      heading(score === qs.length ? 'Parfait ! 🍾' : score >= qs.length - 2 ? 'Très bien !' : 'Pas mal du tout !',
-        `${score} out of ${qs.length}. Anything you missed will come back in a later quiz.`);
+      const s = score(), done = db.get('done', {}); done[L.week] = Math.max(done[L.week] || 0, s); db.set('done', done);
+      heading(s === qs.length ? 'Parfait ! 🍾' : s >= qs.length - 2 ? 'Très bien !' : 'Pas mal du tout !',
+        `${s} out of ${qs.length} right first time. Anything you missed will come back in a later quiz.`);
       panel.append(el('div', 'flutes', flutes()));
       next();
     };

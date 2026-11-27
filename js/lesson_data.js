@@ -11,7 +11,7 @@ const LESSONS = [
   {
     week: 0, unlock: '2026-12-25T08:00:00', scene: 'terrasse', music: 'accordion',
     titleFr: 'Bonsoir !', titleEn: 'Greetings and thank-yous',
-    dialogueView: { x: 340, y: 175, w: 660, h: 412.5 },
+    dialogueView: { x: 320, y: 170, w: 680, h: 425 },
 
     // Step 1: the scene. Tappable things, each linked to a phrase.
     objects: [
@@ -84,7 +84,7 @@ const LESSONS = [
   {
     week: 1, unlock: '2027-01-01T08:00:00', scene: 'terrasse', music: 'accordion',
     titleFr: 'Au restaurant', titleEn: 'Menus, the bill and the bathroom',
-    dialogueView: { x: 340, y: 175, w: 660, h: 412.5 },
+    dialogueView: { x: 320, y: 170, w: 680, h: 425 },
 
     // the same terrace: familiar things, each linked to a new restaurant phrase
     objects: [

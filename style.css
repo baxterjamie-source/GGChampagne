@@ -219,6 +219,14 @@ html, body {
   .lesson-body { flex-direction: row; gap: 12px; padding: 0 12px; }
   .lesson-scene { height: auto; width: 55vw; align-self: center; }
 }
+/* computers and big landscape tablets: the picture on the left as big as fits, the lesson in a column beside it,
+   so nothing needs scrolling past the picture (~140px is the header, navigation and step name) */
+@media (orientation: landscape) and (min-width: 900px) and (min-height: 561px) {
+  .lesson-body { flex-direction: row; align-items: flex-start; gap: 18px; padding: 4px 18px 14px; }
+  .lesson-scene { flex: none; height: auto; max-width: none; margin: 0;
+    width: min(calc(100vw - 36px - 18px - 380px), calc((100dvh - 150px) * 1.6)); }
+  .lesson-side { flex: 1; min-width: 340px; max-width: 560px; align-self: stretch; margin: 0; }
+}
 
 /* scene objects */
 .obj { cursor: pointer; }
@@ -326,6 +334,8 @@ html, body {
 .tiles.slots { gap: 6px; }
 .slot { min-width: 54px; min-height: 42px; border: 1px dashed rgba(243,198,192,.35); border-radius: 12px; display: inline-flex; }
 .slot:has(.tile) { border-color: transparent; min-width: 0; }
+.punct { align-self: flex-end; margin: 0 2px 6px -3px; font: 1.3rem var(--serif); color: var(--gold-hi); }
+.lesson-foot .btn small { font-size: .72em; opacity: .75; font-weight: 400; }
 .tile.right { border-color: #7CDB8A; background: rgba(124,219,138,.18); cursor: default; }
 .tile.wrong { border-color: #FF6B6B; background: rgba(255,107,107,.15); }
 .feedback { margin-top: 12px; padding: 12px 14px; border-radius: 14px; animation: rise-in .3s ease; }
