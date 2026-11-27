@@ -200,6 +200,11 @@ function sideShot(o) {
     if (o.extra) o.extra(ctx, t, dt, S, L, light);
     darken(ctx, U.clamp((1 - light) * 0.75));
     nightShade(ctx, light);
+    // o.peopleLift: S and J in the side window brighter (×1.2 = 20%), the car round them left as dark
+    if ((o.peopleLift ?? 1) > 1) {
+      const space = c => { if (car.rotateAll) { c.translate(car.x, car.ground); c.rotate(car.rotateAll); c.translate(-car.x, -car.ground); } carTransform(c, car); };
+      liftPeople(ctx, space, worried > 0.5 ? A.carBodyWorried : (car.body || A.carBody), SIDE_PEOPLE, 0, 0, (o.peopleLift - 1) * sceneLight(light));
+    }
     if (light > 1) sunshine(ctx, light - 1);
     if (light < 0.9) drawCarLights(ctx, { ...car, lights: U.clamp((0.9 - light) * 2) });
     ctx.restore();
@@ -437,6 +442,51 @@ function forestGlimpse(ctx, k) {
   ctx.save(); ctx.globalAlpha = k; ctx.drawImage(_glimpse, 0, 0); ctx.restore();
 }
 
+/* Shot 12's car (stopped; the same spot as shot 10). */
+const SIDE_OPEN_CAR = { x: 720, ground: 868, s: 0.62, scroll: 0, bumpAmt: 0 };
+/* Roughly how much light darken((1 - light) * dk) + nightShade(light) leaves (0..1). */
+function sceneLight(light, dk = 0.75) {
+  const n = U.clamp((0.45 - light) / 0.42);
+  return (1 - 0.82 * U.clamp((1 - light) * dk)) * (1 - Math.pow(n, 1.15) * 0.8);
+}
+/* Shot 12 (user 27 Nov): a butterfly in Clicquot orange and black flutters across in front of the car, left to
+   right, bobbing and weaving, its wings flapping. t: seconds since it set off (it takes ~4 s to cross). */
+function drawButterfly(ctx, t) {
+  if (t < 0 || t > 4.2) return;
+  const x = -40 + t * 420 + Math.sin(t * 3.1) * 40, y = 600 - t * 35 + Math.sin(t * 4.3) * 45 + Math.sin(t * 9.7) * 12;
+  const flap = Math.abs(Math.cos(t * 17)), tilt = Math.sin(t * 4.3) * 0.25, sz = 15;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(tilt);
+  for (const side of [-1, 1]) {
+    ctx.save(); ctx.scale(side * (0.25 + 0.75 * flap), 1);           // the wings fold up and open again
+    ctx.fillStyle = '#F2A900'; ctx.strokeStyle = '#1a1208'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.ellipse(sz * 0.9, -sz * 0.45, sz, sz * 0.7, -0.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();   // forewing
+    ctx.beginPath(); ctx.ellipse(sz * 0.6, sz * 0.45, sz * 0.62, sz * 0.5, 0.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); // hindwing
+    ctx.fillStyle = '#1a1208';
+    ctx.beginPath(); ctx.ellipse(sz * 1.45, -sz * 0.75, sz * 0.32, sz * 0.22, -0.5, 0, Math.PI * 2); ctx.fill();          // dark wing tip
+    ctx.fillStyle = '#FBF5E9'; ctx.beginPath(); ctx.arc(sz * 1.45, -sz * 0.75, sz * 0.08, 0, Math.PI * 2); ctx.fill();   // a little white spot
+    ctx.restore();
+  }
+  ctx.fillStyle = '#1a1208'; ctx.beginPath(); ctx.ellipse(0, 0, sz * 0.14, sz * 0.6, 0, 0, Math.PI * 2); ctx.fill();    // body
+  ctx.strokeStyle = '#1a1208'; ctx.lineWidth = 1.2; ctx.beginPath();
+  ctx.moveTo(0, -sz * 0.55); ctx.quadraticCurveTo(-sz * 0.2, -sz * 1.0, -sz * 0.35, -sz * 1.15);
+  ctx.moveTo(0, -sz * 0.55); ctx.quadraticCurveTo(sz * 0.2, -sz * 1.0, sz * 0.35, -sz * 1.15); ctx.stroke();           // antennae
+  ctx.restore();
+}
+/* Shot 14 (user 27 Nov): three swallows far off across the sky in the windscreen, right to left, wings beating. */
+function drawBirds(ctx, t) {
+  // [start, height, size]: in the strip of sky above the horizon, mostly clear of the rear-view mirror
+  const birds = [[0.6, 258, 1.3], [1.0, 244, 1.05], [1.3, 270, 1.15]];
+  ctx.save(); ctx.strokeStyle = 'rgba(40,38,44,.85)'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  birds.forEach(([t0, y0, k], i) => {
+    const u = t - t0; if (u < 0 || u > 4) return;
+    const x = 1180 - u * 190, y = y0 + Math.sin(u * 2 + i) * 8, w = 13 * k, beat = Math.sin(u * 14 + i * 2);
+    ctx.lineWidth = 2.2 * k;
+    ctx.beginPath(); ctx.moveTo(x - w, y - beat * w * 0.5); ctx.quadraticCurveTo(x - w * 0.4, y - w * 0.15, x, y + 2);
+    ctx.quadraticCurveTo(x + w * 0.4, y - w * 0.15, x + w, y - beat * w * 0.5); ctx.stroke();
+  });
+  ctx.restore();
+}
+
 /* Shot 6: the cut-away to the two of them through the windscreen, worried, bumping up the hill. */
 const FORK_FACES = frontCloseShot({ dur: 0.85, img: 'carFront', light: 0.18, match: true, faceLift: 1.2, rain: 0.85, shake: () => 5, zoom: p => U.lerp(2.2, 2.35, p),
   lurch: t => Math.sin(t * 6) * 0.025 });
@@ -580,7 +630,8 @@ const SHOTS = [
   { // 7. Uphill through the forest; it's nearly dark; they slow right down
     name: 'side-forest', fy: 0.95, dur: 5, dirt: [0.7, 0.86],
     enter: S => { SFX.setRain(0.9); },
-    draw: sideShot({ dur: 5, speed: t => U.lerp(420, 150, U.clamp(t / 5)), mode: 'forest', light: p => U.lerp(0.13, 0.05, p), rain: 0.95, tiltWorld: -0.06 }),
+    draw: sideShot({ dur: 5, speed: t => U.lerp(420, 150, U.clamp(t / 5)), mode: 'forest', light: p => U.lerp(0.13, 0.05, p), rain: 0.95, tiltWorld: -0.06,
+      peopleLift: 1.2 }),   // (user 27 Nov) S and J 20% brighter
     tick: (t) => SFX.setEngine(1, U.lerp(1.1, 0.7, t / 5)),
   },
   { // 8. Inside, creeping along… then J slams on the brakes (Batch 3: cut at 3.5 s, just as he brakes)
@@ -597,7 +648,7 @@ const SHOTS = [
   },
   { // 9. Two shocked faces: the car lurches to a stop, nose down (Batch 3: as dark as the forest around them)
     name: 'faces-brake', dur: 1.6, dirt: 0.9,
-    draw: frontCloseShot({ dur: 1.6, img: 'frontShock', bg: 'forest', light: 0.1, match: true, faceLift: 1.2, peopleLift: 1.2, rain: 0.9, shake: t => 16 * Math.exp(-t * 2), zoom: p => 1.55 + p * 0.12, bob: 0,
+    draw: frontCloseShot({ dur: 1.6, img: 'frontShock', bg: 'forest', light: 0.1, match: true, faceLift: 1.2, peopleLift: 1.44, rain: 0.9, shake: t => 16 * Math.exp(-t * 2), zoom: p => 1.55 + p * 0.12, bob: 0,
       lurch: t => Math.sin(t * 9) * 0.02 * Math.exp(-t * 2.5) }),
   },
   // (Batch 3: 'inside-chairs', the chair backs seen from inside, was removed.)
@@ -614,8 +665,9 @@ const SHOTS = [
       drawCarSide(ctx, car);
       darken(ctx, 0.92);
       ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(-100, -100, W + 200, H + 200);   // the car and the trees barely there
-      // (user 27 Nov) S and J in the window 20% brighter: the shading above leaves ~0.12 of the light, so add 0.2 × that
-      liftPeople(ctx, c => carTransform(c, car), A.carBodyWorried, SIDE_PEOPLE, 0, 0, 0.2 * (1 - 0.82 * 0.92) * 0.5);
+      // (user 27 Nov) S and J in the window brighter, twice over: ×1.2 × 1.2 = ×1.44. The shading above leaves
+      // ~0.12 of the light, so add 0.44 × that
+      liftPeople(ctx, c => carTransform(c, car), A.carBodyWorried, SIDE_PEOPLE, 0, 0, 0.44 * (1 - 0.82 * 0.92) * 0.5);
       // the set (same layout as every other shot), the near chair caught in the beam;
       // the far chair is lost in the dark and the table is beyond the light
       ctx.save(); ctx.filter = 'brightness(0.55) sepia(0.25)';
@@ -646,11 +698,15 @@ const SHOTS = [
       drawSideWorld(ctx, { scroll: S.scroll, light, mode: 'forest' });
       forestGlimpse(ctx, U.ease(U.clamp(p * 1.6)));
       // S looking ahead, in wonder, once the painting exists (ART_PROMPTS L2); until then the usual picture
-      drawCarSide(ctx, { x: 720, ground: 868, s: 0.62, scroll: S.scroll, bumpAmt: 0, body: A.carWonder, dirt: S.dirt });
+      drawCarSide(ctx, { ...SIDE_OPEN_CAR, scroll: S.scroll, body: A.carWonder, dirt: S.dirt });
       drawSetSide(ctx, 720, 868, 0.62, { view: 'profile' });              // the chairs in true side view, facing the valley
+      // (user 27 Nov) static: the car and the people stay still; a butterfly in Clicquot orange flutters by instead
+      drawButterfly(ctx, t - 2.6);
       ctx.restore();
       darken(ctx, U.clamp((1 - light) * 0.75));
       nightShade(ctx, light);
+      // (user 27 Nov) S and J 20% brighter
+      liftPeople(ctx, c => { forestStopFrame(c); carTransform(c, SIDE_OPEN_CAR); }, A.carWonder || A.carBody, SIDE_PEOPLE, 0, 0, 0.2 * sceneLight(light));
       drawRain(ctx, t + S.time, U.clamp(0.4 - p * 0.8));
       // shafts of sunlight from the right
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = U.clamp((p - 0.4) * 1.5) * 0.3;
@@ -672,9 +728,12 @@ const SHOTS = [
         S.inGlass.hx.globalCompositeOperation = 'destination-out';
         S.inGlass.hx.globalAlpha = dt * 0.8; S.inGlass.hx.fillRect(0, 0, W, H);
         S.inGlass.hx.globalAlpha = 1; S.inGlass.hx.globalCompositeOperation = 'source-over';
-        drawPano(ctx, 1 + t * 0.006);
+        // (user 27 Nov) a static shot: no push in (it read as the car creeping forward). Held at the
+        // framing the next shot starts from, so the cut into the pull-back is seamless.
+        drawPano(ctx, 1.03);
         // (no table and chairs here: they're just below the bonnet, out of sight)
         drawRainbow(ctx, U.ease(U.clamp((t - 0.8) / 3)), 1150, 560, 330);
+        drawBirds(ctx, t);                                            // a few swallows across the sky, for charm
       },
     }),
   },
