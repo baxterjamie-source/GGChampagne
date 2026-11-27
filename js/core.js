@@ -50,11 +50,14 @@ const ASSET_FILES = {
   backRight: 'SandJ/citback_fish4.jfif',   // up the fork (shot 7): turned ~35° right into the bend, mud flying
   cheers: 'SandJ/S-J_cheers.jfif',
   // Batch 2: the roadside chat (same framing as Cit-side.jpg)
-  sideChat: 'SandJ/Cit-S-window-chat.jfif',
+  sideChat: 'SandJ/Cit-S-window-chat.jpg',
   sideFwd: 'SandJ/Cit-S-window-chat_forward.jpg',
   sideWave: 'SandJ/Cit-side-wave.jpg',
   woman: 'SandJ/local_woman_back.jfif',
   womanWave: 'SandJ/local_woman_back_wave.jfif',
+  // Batch 3: both looking ahead (same framing as Cit-side.jpg)
+  sideLook: 'SandJ/cit_side_forward.jfif',
+  sideWonder: 'SandJ/cit_side_forward_wonder.jpg',
   // the car from the front, different moods (green screen, same framing as cit_worried_front)
   frontShock: 'SandJ/cit_front_both_shocked.jpg',
   frontSmile: 'SandJ/Cit_front_both_amazed.jpg',
@@ -63,6 +66,8 @@ const ASSET_FILES = {
   inSunny: 'scenery/inside/interior_sunny_not_anxious.jfif',
   inAnxious: 'scenery/inside/interior_anxious.jfif',
   inShocked: 'scenery/inside/interior_shocked.jfif',
+  inSteerR: 'scenery/inside/interior_steer_right.jfif',          // Batch 3: J turning the wheel right (no left one)
+  inHands: 'scenery/inside/interior_sunny_holding_hands.jfif',   // Batch 3: the view and the title, holding hands
   // what they see through the windscreen
   fwdVines: 'scenery/forward/fwd_vineyard_lane.jfif',
   fwdFork: 'scenery/forward/fwd_fork.jfif',
@@ -114,7 +119,7 @@ async function loadAssets(onProgress) {
 }
 
 /* Remove a green-screen background. Returns a canvas with alpha. */
-function keyGreen(img, crop) {
+function keyGreen(img, crop, spill = 0) {
   const sx = crop ? crop[0] : 0, sy = crop ? crop[1] : 0;
   const w = crop ? crop[2] : img.width, h = crop ? crop[3] : img.height;
   const c = makeCanvas(w, h), x = c.getContext('2d', { willReadFrequently: true });
@@ -145,24 +150,49 @@ function keyGreen(img, crop) {
       p[o + 3] = Math.round(p[o + 3] * (pass === 0 ? 0.55 : 0.8));
     }
   }
+  // spill: a wider band (spill px) round the cut-out where yellow-green light from the screen has soaked into
+  // hair and skin. Pull green down there, and thin out pixels that are still clearly green.
+  if (spill) {
+    const dist = new Uint8Array(w * h).fill(255), q = [];
+    for (let j = 0; j < w * h; j++) if (p[j * 4 + 3] < 128) { dist[j] = 0; q.push(j); }
+    for (let qi = 0; qi < q.length; qi++) {
+      const j = q[qi], dj = dist[j] + 1;
+      if (dj > spill) continue;
+      const xx = j % w;
+      for (const n of [xx > 0 ? j - 1 : -1, xx < w - 1 ? j + 1 : -1, j - w, j + w]) {
+        if (n < 0 || n >= w * h || dist[n] <= dj) continue;
+        dist[n] = dj; q.push(n);
+      }
+    }
+    for (let j = 0; j < w * h; j++) {
+      if (dist[j] === 0 || dist[j] > spill) continue;
+      const o = j * 4, r = p[o], g = p[o + 1], b = p[o + 2];
+      if (g > b + 15 && g > r * 0.82) {
+        p[o + 1] = Math.round(Math.min(g, Math.max(r * 0.8, b)));
+        if (g > r + 10) p[o + 3] = Math.round(p[o + 3] * U.clamp(1 - (g - r) / 60));
+      }
+    }
+  }
   x.putImageData(d, 0, 0);
   return c;
 }
 
 /* Remove a flat magenta (#FF00FF) background, used for the painted scenery layers. */
-function keyMagenta(img) {
+function keyMagenta(img, tight = false) {
   const w = img.width, h = img.height;
   const c = makeCanvas(w, h), x = c.getContext('2d', { willReadFrequently: true });
   x.drawImage(img, 0, 0);
   const d = x.getImageData(0, 0, w, h), p = d.data;
+  // tight (the forest layers, Batch 3): key in sooner and despill harder, so no purple rim shows round the leaves in daylight
+  const k0 = tight ? 22 : 40, kw = tight ? 60 : 90, s0 = tight ? 4 : 15;
   for (let i = 0; i < p.length; i += 4) {
     const r = p[i], g = p[i + 1], b = p[i + 2];
     const ex = Math.min(r, b) - g;                 // how magenta it is
-    if (ex > 40) {
-      const k = U.clamp((ex - 40) / 90);
+    if (ex > k0) {
+      const k = U.clamp((ex - k0) / kw);
       p[i + 3] = Math.round(p[i + 3] * (1 - k));
     }
-    if (ex > 15) { const s = (ex - 15) * 0.8; p[i] = Math.max(g, r - s); p[i + 2] = Math.max(g, b - s); } // despill
+    if (ex > s0) { const s = (ex - s0) * (tight ? 1 : 0.8); p[i] = Math.max(g, r - s); p[i + 2] = Math.max(g, b - s); } // despill
   }
   x.putImageData(d, 0, 0);
   return c;
@@ -262,8 +292,10 @@ function processAssets() {
   A.carChat = carParts(keyGreen(RAW.sideChat)).body;              // S leaning out of her window
   A.carFwd = carParts(keyGreen(RAW.sideFwd)).body;                // ...still leaning, looking ahead
   A.carWave = carParts(keyGreen(RAW.sideWave)).body;              // S waving
+  A.carLook = carParts(keyGreen(RAW.sideLook)).body;              // both looking ahead (Batch 3)
+  A.carWonder = carParts(keyGreen(RAW.sideWonder)).body;          // both looking ahead in wonder (Batch 3)
   A.woman = keyGreen(RAW.woman); A.womanWave = keyGreen(RAW.womanWave);
-  A.carFront = keyGreen(RAW.frontWorried);
+  A.carFront = keyGreen(RAW.frontWorried, null, 6);
   A.scVinesFwd = keyMagenta(RAW.scVinesFwd);
   finishAssets();
 }
@@ -300,10 +332,12 @@ function finishAssets() {
   A.carBack = keyGreen(RAW.back);
   A.carBackRight = keyGreen(RAW.backRight);
   A.cheers = keyGreen(RAW.cheers);   // 864x1152, glasses touch at ~(430,400)
-  for (const k of ['frontShock', 'frontSmile', 'frontAwe', 'inSunny', 'inAnxious', 'inShocked']) A[k] = keyGreen(RAW[k]);
+  // the front-on close-ups get the wider despill (a yellow-green glow showed round S's hair, Batch 3)
+  for (const k of ['frontShock', 'frontSmile', 'frontAwe']) A[k] = keyGreen(RAW[k], null, 6);
+  for (const k of ['inSunny', 'inAnxious', 'inShocked', 'inSteerR', 'inHands']) A[k] = keyGreen(RAW[k]);
   for (const k of ['fwdVines', 'fwdFork', 'fwdForest', 'fwdClearing', 'pano', 'clearing']) A[k] = RAW[k];
-  A.forestFar = makeTileable(keyMagenta(RAW.forestFar));
-  A.forestNear = makeTileable(keyMagenta(RAW.forestNear));
+  A.forestFar = makeTileable(keyMagenta(RAW.forestFar, true));
+  A.forestNear = makeTileable(keyMagenta(RAW.forestNear, true));
   A.chair = trimAlpha(keyMagenta(RAW.chair));
   A.chairBack = trimAlpha(keyMagenta(RAW.chairBack));
   A.chairBackSide = trimAlpha(keyMagenta(RAW.chairBackSide));

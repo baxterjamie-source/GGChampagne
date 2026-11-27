@@ -285,6 +285,7 @@ function drawCarSide(ctx, o) {
     const img = A.carWheels[i];
     ctx.save(); ctx.translate(w.x, w.y); ctx.rotate((o.spin ?? o.scroll) / w.r);
     ctx.drawImage(img, -img.width / 2 * o.s, -img.height / 2 * o.s, img.width * o.s, img.height * o.s);
+    drawWheelMud(ctx, w.r, o.dirt, i * 13 + 1);
     ctx.restore();
   });
   ctx.save(); carTransform(ctx, o);
@@ -293,9 +294,10 @@ function drawCarSide(ctx, o) {
     ctx.globalAlpha = 1;
   } else {
     const wor = o.worried || 0;                     // 0 = happy faces, 1 = worried faces (crossfade)
-    if (wor < 1) ctx.drawImage(A.carBody, 0, 0);
+    if (wor < 1) ctx.drawImage(o.body || A.carBody, 0, 0);
     if (wor > 0) { ctx.globalAlpha = wor; ctx.drawImage(A.carBodyWorried, 0, 0); ctx.globalAlpha = 1; }
   }
+  drawCarMud(ctx, A.carBody, 'side', o.dirt);       // every side picture has the same outline as Cit-side
   ctx.restore();
   ctx.restore();
   if (o.lights) drawCarLights(ctx, o);
@@ -314,6 +316,133 @@ function drawCarLights(ctx, o) {
     ctx.beginPath(); ctx.moveTo(lx, ly - 14); ctx.lineTo(lx + 1000, ly - 120); ctx.lineTo(lx + 1000, ly + 260); ctx.lineTo(lx, ly + 14); ctx.closePath(); ctx.fill();
     ctx.fillStyle = `rgba(255,245,210,${0.9 * o.lights})`; ctx.beginPath(); ctx.arc(lx, ly, 16, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
+  }
+  ctx.restore();
+}
+
+/* ---------- Mud on the car: builds up through the film (Batch 3) ----------
+   The mud comes off the wheels, so the pattern is: thick round the wheel arches, sprays flung back
+   (or, seen from the front/back, up and outwards) from each tyre, and a band along the bottom of the
+   body that climbs higher as it gets worse. Each splat has a threshold: at dirt level v only the
+   splats with threshold < v show, so the mud spreads outwards and upwards as v goes 0 → 1.
+   Rendered once per picture (lazily, at half size, masked to the car's own outline) at 3 levels. */
+const MUD_SPECS = {
+  // in the picture's own pixels. wheels: [cx, cy, r]; back: which way is backwards on screen (-1 = left; 0 = seen
+  // end-on, so the spray goes up and outwards); band: [x0, x1, bottom y, height]; bonnet: [x0, x1, y0, y1] flecks
+  side: { wheels: [[214, 641, 87], [924, 640, 90]], back: -1, band: [40, 1110, 700, 190] },
+  front: { wheels: [[275, 760, 62], [877, 760, 62]], back: 0, band: [210, 945, 790, 230], bonnet: [330, 830, 420, 600] },
+  carBack: { wheels: [[285, 790, 70], [860, 790, 70]], back: 0, band: [200, 950, 830, 230] },
+  carBackRight: { wheels: [[230, 770, 70], [690, 805, 70]], back: 0, band: [120, 900, 830, 240] },
+};
+const MUD_LEVELS = [0.34, 0.67, 1];
+const _mud = new Map();
+function mudBlobs(spec) {
+  let n = 0; const R = () => U.hash(++n * 1.618 + 0.37);
+  const out = [];
+  for (const [cx, cy, r] of spec.wheels) {
+    // round the arch (the top half of the wheel), thickest on the side the tyre throws towards
+    for (let i = 0; i < 120; i++) {
+      const bias = spec.back ? (spec.back < 0 ? Math.pow(R(), 1.6) : 1 - Math.pow(R(), 1.6)) : R();
+      const a = Math.PI * (1.05 + 0.9 * bias), d = r * (1.02 + Math.pow(R(), 1.5) * 0.55);
+      out.push({ x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d, r: 5 + R() * 13, thr: 0.02 + R() * 0.55 + (d / r - 1) * 0.6, k: 'clump' });
+    }
+    // sprays flung off the tyre: arcs of drops and streaks
+    for (let s = 0; s < 13; s++) {
+      const out0 = spec.back ? spec.back : (cx < 576 ? -1 : 1);
+      const sx = cx + out0 * r * (0.4 + R() * 0.5), sy = cy - r * (0.5 + R() * 0.4);
+      const vx = out0 * (spec.back ? 120 + R() * 380 : 40 + R() * 160), vy = -(spec.back ? 60 + R() * 220 : 120 + R() * 260);
+      const t0 = R() * 0.2;
+      for (let i = 0; i < 9; i++) {
+        const t = t0 + i * (0.09 + R() * 0.03), x = sx + vx * t, y = sy + vy * t + 260 * t * t;
+        out.push({ x, y, r: (2.5 + R() * 5) * (1.2 - t), ang: Math.atan2(vy + 520 * t, vx), thr: 0.12 + t * 0.9 + R() * 0.15, k: 'drop' });
+      }
+    }
+  }
+  // the band along the bottom of the body: thick at the bottom, thinning upwards
+  const [x0, x1, yb, hgt] = spec.band;
+  for (let i = 0; i < 480; i++) {
+    const u = Math.pow(R(), 1.8), x = x0 + R() * (x1 - x0), y = yb - u * hgt;
+    out.push({ x, y, r: 3 + R() * (u < 0.25 ? 14 : 7), thr: u * 0.85 + R() * 0.2, k: u < 0.3 ? 'clump' : 'drop', ang: -Math.PI / 2 + (R() - 0.5) });
+  }
+  if (spec.bonnet) {                                         // a few flecks thrown up onto the bonnet
+    const [bx0, bx1, by0, by1] = spec.bonnet;
+    for (let i = 0; i < 40; i++) out.push({ x: bx0 + R() * (bx1 - bx0), y: by0 + R() * (by1 - by0), r: 1.5 + R() * 3.5, thr: 0.45 + R() * 0.55, k: 'drop', ang: -Math.PI / 2 });
+  }
+  return out;
+}
+function drawMudBlob(x, b, i) {
+  const h = U.hash(i * 3.3), col = [[88, 62, 38], [104, 74, 44], [70, 50, 30], [122, 92, 60], [94, 70, 46]][Math.floor(h * 5)];
+  const r = b.r * 0.55;                                         // fine spatter, not polka dots
+  x.fillStyle = U.rgb(col, 0.6 + 0.35 * U.hash(i * 7.7));
+  if (b.k === 'drop') {
+    // a streak along the way it flew: a tapered smear with a fat head, and a fleck or two left behind
+    x.save(); x.translate(b.x, b.y); x.rotate(b.ang || 0);
+    const len = r * (2.5 + U.hash(i * 1.9) * 3);
+    x.beginPath(); x.moveTo(-len, 0); x.quadraticCurveTo(-len * 0.3, -r * 0.7, r, 0); x.quadraticCurveTo(-len * 0.3, r * 0.7, -len, 0); x.fill();
+    x.beginPath(); x.arc(0, 0, r * 0.75, 0, Math.PI * 2); x.fill();
+    for (let k = 0; k < 2; k++) { x.beginPath(); x.arc(-len * (1.2 + k * 0.5), (U.hash(i + k) - 0.5) * r, r * 0.3, 0, Math.PI * 2); x.fill(); }
+    x.restore();
+    return;
+  }
+  for (let k = 0; k < 7; k++) {                                // an irregular clump of small lumps, and specks thrown round it
+    const a = U.hash(i + k * 7.1) * 6.28, d = r * U.hash(i * 2 + k);
+    x.beginPath(); x.ellipse(b.x + Math.cos(a) * d, b.y + Math.sin(a) * d, r * (0.3 + 0.35 * U.hash(i + k)), r * (0.2 + 0.25 * U.hash(i * 3 + k)), a, 0, Math.PI * 2); x.fill();
+  }
+  for (let k = 0; k < 7; k++) {
+    const a = U.hash(i * 5 + k) * 6.28, d = r * (1.2 + U.hash(i + k * 3) * 2);
+    x.beginPath(); x.arc(b.x + Math.cos(a) * d, b.y + Math.sin(a) * d, 0.6 + U.hash(i * 9 + k) * r * 0.18, 0, Math.PI * 2); x.fill();
+  }
+}
+/* A thin film of road grime over the lower body, thicker towards the bottom, rising with the level. */
+function drawGrime(x, spec, lv) {
+  const [x0, x1, yb, hgt] = spec.band, top = yb - hgt * (0.35 + 0.65 * lv);
+  const g = x.createLinearGradient(0, yb, 0, top);
+  g.addColorStop(0, `rgba(84,60,36,${0.55 * lv})`); g.addColorStop(0.5, `rgba(96,72,46,${0.22 * lv})`); g.addColorStop(1, 'rgba(96,72,46,0)');
+  x.fillStyle = g; x.fillRect(x0 - 60, top, x1 - x0 + 120, yb - top + 60);
+  for (const [cx, cy, r] of spec.wheels) {                     // darker round each wheel arch
+    const rg = x.createRadialGradient(cx, cy, r * 0.9, cx, cy, r * (1.5 + 0.4 * lv));
+    rg.addColorStop(0, `rgba(70,50,30,${0.5 * lv})`); rg.addColorStop(1, 'rgba(70,50,30,0)');
+    x.fillStyle = rg; x.fillRect(cx - r * 2.2, cy - r * 2.2, r * 4.4, r * 4.4);
+  }
+}
+function mudLayers(img, specKey) {
+  let m = _mud.get(img);
+  if (m) return m;
+  const sc = 0.5, w = Math.ceil(img.width * sc), h = Math.ceil(img.height * sc), spec = MUD_SPECS[specKey], blobs = mudBlobs(spec);
+  m = MUD_LEVELS.map(lv => {
+    const c = makeCanvas(w, h), x = c.getContext('2d');
+    x.scale(sc, sc);
+    drawGrime(x, spec, lv);
+    blobs.forEach((b, i) => { if (b.thr < lv) drawMudBlob(x, b, i); });
+    x.setTransform(1, 0, 0, 1, 0, 0);
+    x.globalCompositeOperation = 'destination-in'; x.drawImage(img, 0, 0, w, h);   // only on the car itself
+    return c;
+  });
+  _mud.set(img, m);
+  return m;
+}
+/* Draw the mud for picture img (drawn at x, y in the current transform, at its natural size) at dirt level v (0..1).
+   The levels nest, so the one below is drawn solid and the next one fades in over it. */
+function drawCarMud(ctx, img, specKey, v, x = 0, y = 0) {
+  if (!(v > 0.01) || !img) return;
+  const L = mudLayers(img, specKey), f = U.clamp(v) * L.length, lo = Math.floor(f), k = f - lo;
+  ctx.save();
+  if (lo > 0) ctx.drawImage(L[Math.min(lo, L.length) - 1], x, y, img.width, img.height);
+  if (lo < L.length && k > 0.01) { ctx.globalAlpha *= k; ctx.drawImage(L[lo], x, y, img.width, img.height); }
+  ctx.restore();
+}
+/* Mud on a side-view tyre (drawn in the wheel's spinning frame, so the hub flecks turn with it). */
+function drawWheelMud(ctx, r, v, seed) {
+  if (!(v > 0.01)) return;
+  ctx.save();
+  ctx.globalAlpha = 0.55 * U.clamp(v * 1.4);
+  ctx.strokeStyle = '#4e3622'; ctx.lineWidth = r * 0.24;
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.86, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = '#5e4229';
+  for (let i = 0; i < 14; i++) {
+    if (U.hash(seed + i * 1.7) > v) continue;
+    const a = U.hash(seed * 3 + i) * 6.28, d = r * (0.2 + U.hash(seed + i * 4.1) * 0.5);
+    ctx.globalAlpha = 0.8; ctx.beginPath(); ctx.arc(Math.cos(a) * d, Math.sin(a) * d, r * (0.04 + U.hash(i * 2.2) * 0.06), 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
 }
@@ -409,7 +538,8 @@ class Glass {
     const x = this.mx;
     for (let i = 0; i < n; i++) {
       const cx = area[0] + Math.random() * area[2], cy = area[1] + Math.random() * area[3], r = 18 + Math.random() * 55;
-      x.fillStyle = `rgba(${86 + Math.random() * 30},${58 + Math.random() * 20},${34 + Math.random() * 14},0.92)`;
+      // dark, wet mud (the glass isn't darkened with the night, so lighter browns read as orange in the storm)
+      x.fillStyle = `rgba(${40 + Math.random() * 16},${28 + Math.random() * 10},${18 + Math.random() * 8},0.9)`;
       x.beginPath(); x.ellipse(cx, cy, r, r * (0.6 + Math.random() * 0.4), Math.random() * 3, 0, Math.PI * 2); x.fill();
       for (let k = 0; k < 6; k++) {   // splatter specks
         const a = Math.random() * Math.PI * 2, d = r * (1 + Math.random() * 1.2);

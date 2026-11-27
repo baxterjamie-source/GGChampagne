@@ -39,6 +39,7 @@ function drawForkCar(ctx, V, fx, fy, s0, shift, rot, sx) {
   ctx.save();
   ctx.translate(fx + shift, fy); ctx.rotate(rot); ctx.scale(s * sx, s);
   ctx.drawImage(A[V.img], -V.f[0], -V.f[1]);
+  drawCarMud(ctx, A[V.img], V.img, S_ ? S_.dirt : 0, -V.f[0], -V.f[1]);
   ctx.globalCompositeOperation = 'lighter';
   for (const [lx0, ly0] of V.lights) {                                 // a soft glow round the rear lights
     const lx = lx0 - V.f[0], ly = ly0 - V.f[1];
@@ -182,7 +183,7 @@ function sideShot(o) {
     drawSideWorld(ctx, { scroll: S.scroll, light, mode: o.mode, lit: U.clamp(1 - light), t: S.time, rain });
     const swerve = o.swerve ? o.swerve(t, L) : 0;
     const worried = typeof o.worried === 'function' ? o.worried(p) : (o.worried ?? 1);
-    const car = { x: 720 + (o.carDX ? o.carDX(t) : 0), ground: 868, s: 0.62, scroll: S.scroll, rotateAll: swerve, bob: Math.sin(t * 23) * 2.5 * U.clamp(speed / 400), bumpAmt: U.clamp(speed / 300), worried };
+    const car = { x: 720 + (o.carDX ? o.carDX(t) : 0), ground: 868, s: 0.62, scroll: S.scroll, rotateAll: swerve, bob: Math.sin(t * 23) * 2.5 * U.clamp(speed / 400), bumpAmt: U.clamp(speed / 300), worried, dirt: S.dirt, body: o.body && A[o.body] };
     const wheels = drawCarSide(ctx, car);
     // mud thrown back by the rear wheel
     const rw = wheels[0];
@@ -199,15 +200,9 @@ function sideShot(o) {
     ctx.restore();
     drawRain(ctx, t + S.time, rain);
     if (L.flash != null) drawLightning(ctx, t - L.flash, L.flashSeed);
-    // mud flung onto the camera lens: splats, then slides down and away
-    (o.lensSplats || []).forEach((ts, i) => once(L, 'lens' + i, t > ts, () => lensSplat(S, 3)));
-    if (L.lensBurst) { lensSplat(S, 3); L.lensBurst = 0; }
-    S.lens.update(dt, { rain: 0, refill: 0, mudSlide: 75 });
-    S.lens.draw(ctx, 0, false);
+    // (no mud on the camera any more, Batch 3: it hid the view. The mud goes on the car instead.)
   };
 }
-/* A messy splat of mud on the camera lens: an irregular clump thrown from the lower left,
-   spatter flecks, drips that run, and a wet highlight. It then slides down and fades (Glass.update). */
 /* Warm sunshine over the scene: a soft glow from the sun (top right) and gentle rays. k: 0..1 */
 function sunshine(ctx, k) {
   k = U.clamp(k);
@@ -226,41 +221,6 @@ function sunshine(ctx, k) {
     ctx.closePath(); ctx.fill();
   }
   ctx.restore();
-}
-
-function lensSplat(S, n) {
-  const x = S.lens.mx;
-  for (let k = 0; k < n; k++) {
-    const cx = 80 + Math.random() * 900, cy = 380 + Math.random() * 420, r = 45 + Math.random() * 95;
-    const ang = -0.5 + Math.random() * 0.6;                 // thrown up and to the right
-    const base = [74 + Math.random() * 20, 50 + Math.random() * 12, 30 + Math.random() * 8];
-    // clump: many overlapping lumps, denser in the middle
-    for (let i = 0; i < 26; i++) {
-      const d = Math.pow(Math.random(), 1.6) * r, a = Math.random() * Math.PI * 2;
-      const lx = cx + Math.cos(a) * d * 1.3, ly = cy + Math.sin(a) * d * 0.8, lr = r * (0.18 + Math.random() * 0.32) * (1 - d / r * 0.5);
-      const g = x.createRadialGradient(lx - lr * .3, ly - lr * .3, lr * .1, lx, ly, lr);
-      g.addColorStop(0, U.rgb(U.mix(base, [140, 104, 70], 0.35), 0.97));
-      g.addColorStop(0.7, U.rgb(base, 0.95));
-      g.addColorStop(1, U.rgb(U.mix(base, [30, 20, 12], 0.4), 0.0));
-      x.fillStyle = g; x.beginPath(); x.arc(lx, ly, lr, 0, Math.PI * 2); x.fill();
-    }
-    // spatter streaks in the direction of travel
-    x.fillStyle = U.rgb(base, 0.9);
-    for (let i = 0; i < 22; i++) {
-      const a = ang + (Math.random() - 0.5) * 1.4, d = r * (0.9 + Math.random() * 1.6), sr = 2 + Math.random() * 7;
-      x.beginPath(); x.ellipse(cx + Math.cos(a) * d, cy + Math.sin(a) * d, sr * 1.8, sr, a, 0, Math.PI * 2); x.fill();
-    }
-    // drips running down
-    for (let i = 0; i < 4; i++) {
-      const dx = cx + (Math.random() - 0.5) * r * 1.4, w = 5 + Math.random() * 8, len = r * (0.6 + Math.random() * 1.5);
-      x.beginPath(); x.roundRect(dx - w / 2, cy, w, len, w / 2); x.fill();
-      x.beginPath(); x.arc(dx, cy + len, w * 0.8, 0, Math.PI * 2); x.fill();
-    }
-    // wet highlight
-    x.fillStyle = 'rgba(255,240,215,.35)';
-    x.beginPath(); x.ellipse(cx - r * 0.25, cy - r * 0.3, r * 0.22, r * 0.09, -0.5, 0, Math.PI * 2); x.fill();
-  }
-  SFX.squelch();
 }
 
 /* Inside the car from the back seat: the view (a painted forward picture, or o.outside), then the rain,
@@ -286,6 +246,9 @@ function insideShot(o) {
     S.inGlass.draw(ctx, o.hazeMax ?? 0.82);
     const cab = typeof o.cabin === 'function' ? o.cabin(t, L) : (o.cabin || 'inAnxious');
     drawInterior(ctx, A[cab], light, {}, flashK);
+    // o.cabinB(t, sway) → [key, 0..1]: a second interior crossfaded over the first (J turning the wheel)
+    const cb = o.cabinB && o.cabinB(t, sway);
+    if (cb && cb[1] > 0.01) drawInterior(ctx, A[cb[0]], light, { alpha: cb[1] }, flashK);
     ctx.restore();
     if (L.jolt) L.jolt = Math.max(0, L.jolt - dt * 40);
   };
@@ -319,14 +282,17 @@ function frontCloseShot(o) {
     if (o.thunder) once(L, 'thunder', t > 0.05, () => { flash(L, t); SFX.thunder(1); });
     const sh = o.shake ? o.shake(t) : 0, z = o.zoom(p);
     frontBackdrop(ctx, S, o.bg || 'vines', light);
-    darken(ctx, (1 - light) * 0.75);
-    nightShade(ctx, light);
+    // o.match (Batch 3): the car and the faces get the same darkening as the scene behind them,
+    // instead of staying lit, so they sit in the same dark
+    if (!o.match) { darken(ctx, (1 - light) * 0.75); nightShade(ctx, light); }
     ctx.save();
     ctx.translate(800 + (Math.random() - .5) * sh, 470 + Math.sin(t * 19) * 5 * (o.bob ?? 1) + (Math.random() - .5) * sh);
     if (o.lurch) ctx.rotate(o.lurch(t));
     ctx.scale(z, z);
     ctx.drawImage(A[o.img], -575, -262);      // centred on the faces behind the windscreen
+    drawCarMud(ctx, A[o.img], 'front', S.dirt, -575, -262);
     ctx.restore();
+    if (o.match) { darken(ctx, (1 - light) * 0.75); nightShade(ctx, light); }
     darken(ctx, (1 - light) * 0.25);
     nightShade(ctx, light + 0.2);                     // the faces stay readable, but it's night on them too
     if (light > 1) sunshine(ctx, light - 1);
@@ -340,9 +306,10 @@ function thunderAfter(sec, power = 1) { setTimeout(() => SFX.thunder(power), sec
 
 /* ---------- Batch 2: the roadside chat ---------- */
 const CHAT_LINE = 'Bienvenue en Champagne ! Profitez bien de votre voyage et joyeux anniversaire !';
-// S: leaning out chatting → looks ahead → waves goodbye → settles back (Cit-side, where shot 1 picks up)
+// S: leaning out chatting → looks ahead → waves goodbye → ~1.5 s later both sit looking ahead
+// (cit_side_forward, Batch 3; shot 1 picks up from the same picture)
 function chatPoses(t) {
-  const steps = [[0, 'carChat'], [3.0, 'carFwd'], [4.7, 'carWave'], [8.3, 'carBody']], fade = 0.6;
+  const steps = [[0, 'carChat'], [3.0, 'carFwd'], [4.7, 'carWave'], [6.2, 'carLook']], fade = 0.6;
   let i = 0;
   while (i < steps.length - 1 && t >= steps[i + 1][0]) i++;
   const cur = A[steps[i][1]], prev = i > 0 ? A[steps[i - 1][1]] : null, k = i > 0 ? U.clamp((t - steps[i][0]) / fade) : 1;
@@ -350,15 +317,16 @@ function chatPoses(t) {
 }
 /* A speech bubble whose tail points at (x, y), the speaker's head; the bubble sits above and to the
    left. lines: the text, already broken into lines. k: 0..1 appearance (pops in, fades out). */
-function drawSpeechBubble(ctx, x, y, lines, k, minX = 14) {
+function drawSpeechBubble(ctx, x, y, lines, k, minX = 14, cx = null) {
   if (k <= 0) return;
   const size = 28, lh = size * 1.3, pad = 20;
   ctx.save();
   ctx.font = `italic 600 ${size}px "Playfair Display", Georgia, serif`;
   const w = Math.max(...lines.map(l => ctx.measureText(l).width)) + pad * 2, h = lines.length * lh + pad * 1.4;
   // bubble's top-left: low enough to survive the top being trimmed on wide phones, and kept on
-  // screen at the left as she drifts off (the tail still reaches her)
-  const bx = Math.min(Math.max(x - w * 0.7, minX), x - 44), by = y - 30 - h;
+  // screen at the left as she drifts off (the tail still reaches her). cx (Batch 3): start centred
+  // there (over S and J); once she drifts left past its left end, the bubble goes with her.
+  const bx = cx != null ? Math.max(Math.min(cx - w / 2, x - 44), minX) : Math.min(Math.max(x - w * 0.7, minX), x - 44), by = y - 30 - h;
   const pop = 0.6 + 0.4 * U.easeOut(U.clamp(k * 1.6));             // a little pop as it appears
   ctx.globalAlpha = U.clamp(k * 3);
   ctx.translate(x, y); ctx.scale(pop, pop); ctx.translate(-x, -y);
@@ -373,6 +341,7 @@ function drawSpeechBubble(ctx, x, y, lines, k, minX = 14) {
   ctx.restore();
 }
 const CHAT_BUBBLE = ['Bienvenue en Champagne !', 'Profitez bien de votre voyage', 'et joyeux anniversaire !'];
+const CHAT_BUBBLE_CX = 735;   // over S's and J's heads in the side view (car at x 720)
 
 /* The local woman, seen from behind, feet at (x, y). h = drawn height of the whole picture. */
 function drawWoman(ctx, x, y, h, waving, t) {
@@ -383,8 +352,33 @@ function drawWoman(ctx, x, y, h, waving, t) {
   ctx.restore();
 }
 
-/* Shot 7: the cut-away to the two of them through the windscreen, worried, bumping up the hill. */
-const FORK_FACES = frontCloseShot({ dur: 0.85, img: 'carFront', light: 0.22, rain: 0.85, shake: () => 5, zoom: p => U.lerp(2.2, 2.35, p),
+/* Shots 10 and 12 (Batch 3): the same camera, beside the car stopped at the edge of the forest. */
+function forestStopFrame(ctx) {
+  // (no tilt: tilted, a sliver of sky showed under the trees at the bottom left once it brightens)
+  ctx.translate(800, 450); ctx.scale(1.1, 1.1); ctx.translate(-800, -450);
+}
+/* Shot 12: a sliver of the open view at the right-hand edge of the forest (the right end of the clearing
+   painting, feathered in from the left), so we sense the space beyond without seeing it. k: 0..1 */
+let _glimpse = null;
+function forestGlimpse(ctx, k) {
+  if (k <= 0.01) return;
+  if (!_glimpse) {
+    const c = makeCanvas(W, H), x = c.getContext('2d');
+    drawCover(x, A.clearing, 1.0, 1.0, 0.75);                      // the right-hand (valley) end of the picture
+    x.globalCompositeOperation = 'destination-in';
+    const g = x.createLinearGradient(1270, 0, 1560, 0);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,1)');
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    const v = x.createLinearGradient(0, 120, 0, 820);              // keep it to the gap between the canopy and the ground
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(0.25, 'rgba(0,0,0,1)'); v.addColorStop(0.85, 'rgba(0,0,0,1)'); v.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = v; x.fillRect(0, 0, W, H);
+    _glimpse = c;
+  }
+  ctx.save(); ctx.globalAlpha = k; ctx.drawImage(_glimpse, 0, 0); ctx.restore();
+}
+
+/* Shot 6: the cut-away to the two of them through the windscreen, worried, bumping up the hill. */
+const FORK_FACES = frontCloseShot({ dur: 0.85, img: 'carFront', light: 0.18, match: true, rain: 0.85, shake: () => 5, zoom: p => U.lerp(2.2, 2.35, p),
   lurch: t => Math.sin(t * 6) * 0.025 });
 
 const SHOTS = [
@@ -409,7 +403,7 @@ const SHOTS = [
       if (wx > -250) drawWoman(ctx, wx, 894, 366, t > 2.1, t);
       // what she says, in French only: up as she starts speaking, gone once the line is done (~5 s)
       // (minX: the frame's left edge plus a margin, in the zoomed coordinates)
-      drawSpeechBubble(ctx, wx + 10, 894 - 366 * 0.86, CHAT_BUBBLE, U.seg(t, 2.2, 2.6) * (1 - U.seg(t, 7.0, 7.4)), fx - (fx - 14) / zoom);
+      drawSpeechBubble(ctx, wx + 10, 894 - 366 * 0.86, CHAT_BUBBLE, U.seg(t, 2.2, 2.6) * (1 - U.seg(t, 7.0, 7.4)), fx - (fx - 14) / zoom, CHAT_BUBBLE_CX);
       ctx.restore();
       sunshine(ctx, 0.6);
     },
@@ -420,12 +414,12 @@ const SHOTS = [
     enter: S => { SFX.setEngine(1, 1); SFX.setRain(0.15); },
     // sunny and smiling → the light goes → rain sets in → she gets worried
     draw: sideShot({
-      dur: 8, speed: 520, mode: 'vines',
+      dur: 8, speed: 520, mode: 'vines', body: 'carLook',   // looking ahead, as shot 0 ends; then the worried faces
       light: p => U.lerp(1.6, 0.62, U.ease(U.seg(p, 0.22, 0.9))),
       rain: p => U.lerp(0, 0.5, U.seg(p, 0.35, 0.8)),
       worried: p => U.ease(U.seg(p, 0.58, 0.72)),
-      lensSplats: [5.6],
     }),
+    dirt: [0, 0.08],
     tick: (t, S) => SFX.setRain(U.lerp(0, 0.5, U.seg(t / 8, 0.35, 0.8))),
   },
   { // 2. Front-on: the 2CV coming towards us through the rain, both a little worried
@@ -444,6 +438,7 @@ const SHOTS = [
       ctx.save();
       ctx.translate(gx, gy + bob); ctx.rotate(sway); ctx.scale(s, s);
       ctx.drawImage(A.carFront, -576, -820);
+      drawCarMud(ctx, A.carFront, 'front', S.dirt, -576, -820);
       // headlights
       ctx.globalCompositeOperation = 'lighter';
       for (const lx of [-248, 248]) {
@@ -458,6 +453,7 @@ const SHOTS = [
       S.mud.update(dt); S.mud.draw(ctx);
       drawRain(ctx, t + S.time, 0.65);
     },
+    dirt: [0.12, 0.18],
   },
   { // 3. Storm: lightning, thunder, a swerve
     name: 'side-storm', fy: 0.95, dur: 6,
@@ -470,38 +466,40 @@ const SHOTS = [
         return t > 3.4 ? Math.sin((t - 3.4) * 9) * 0.06 * Math.exp(-(t - 3.4) * 1.6) : 0;
       },
     }),
+    dirt: [0.2, 0.38],
   },
-  { // 4. Close on the two of them through the windscreen as the thunder cracks: both shocked
-    name: 'front-close-thunder', dur: 2.6,
-    draw: frontCloseShot({ dur: 2.6, img: 'frontShock', light: p => U.lerp(0.38, 0.34, p), rain: 0.8, thunder: true, shake: t => t < 0.7 ? 14 * (1 - t / 0.7) : 0, zoom: p => U.lerp(2.35, 2.65, U.ease(p)) }),
-  },
-  { // 5. Inside, looking out: low visibility, wipers clear the odd swath, mud hits the screen
-    name: 'inside-vines', dur: 6.5,
+  // (Batch 3: the thunderclap close-up that was here, 'front-close-thunder', was dropped.)
+  { // 4. Inside, looking out: low visibility, wipers clear the odd swath, mud hits the windscreen, lightning.
+    // Batch 3: only the last 3 s of what was a 6.5 s shot (skip: 3.5); the mud now lands just after the cut in.
+    name: 'inside-vines', dur: 3, skip: 3.5,
     enter: S => { S.inGlass.fillHaze(0.9); },
     draw: insideShot({
       dur: 6.5, speed: 9, img: 'fwdVines', fy: 0.4, zoom: p => 1.12 + p * 0.1, cabin: 'inAnxious', light: p => U.lerp(0.34, 0.27, p), rain: 0.9, hazeMax: 0.85,
+      // J hauls the wheel right as the car slews, then lets it come back (only a right-turn painting exists)
+      cabinB: (t, sway) => ['inSteerR', U.ease(U.clamp(sway / 0.05))],
       sway: (t, L) => {
-        once(L, 'swerve', t > 2.3, () => { S_.inGlass.splat(7, [180, 90, 1240, 280]); SFX.skid(1); SFX.squelch(); L.jolt = 18; });
-        once(L, 'flash', t > 4.6, () => { flash(L, t); thunderAfter(0.5, 0.8); });
-        return t > 2.3 ? Math.sin((t - 2.3) * 7) * 0.09 * Math.exp(-(t - 2.3) * 1.2) : 0;
+        once(L, 'swerve', t > 3.7, () => { S_.inGlass.splat(7, [180, 90, 1240, 280]); SFX.skid(1); SFX.squelch(); L.jolt = 18; });
+        once(L, 'flash', t > 4.8, () => { flash(L, t); thunderAfter(0.5, 0.8); });
+        return t > 3.7 ? Math.sin((t - 3.7) * 7) * 0.09 * Math.exp(-(t - 3.7) * 1.2) : 0;
       },
     }),
+    dirt: 0.4,
   },
-  { // 6. Sliding in the mud, a bit too fast; J and the stick shift
-    name: 'side-slide', fy: 0.95, dur: 4.2,
+  { // 5. Sliding in the mud, a bit too fast; J and the stick shift
+    name: 'side-slide', fy: 0.95, dur: 4.2, dirt: [0.4, 0.6],
     enter: S => { SFX.setEngine(1, 1.15); },
     draw: sideShot({
       dur: 4.2, speed: 600, mode: 'vines', light: p => U.lerp(0.27, 0.2, p), rain: 0.85, mud: 1.6,
       carDX: t => Math.sin(t * 2.2) * 40,
       swerve: (t, L) => {
         once(L, 's1', t > 0.6, () => { L.burst = 1; SFX.skid(0.8); });
-        once(L, 's2', t > 2.4, () => { L.burst = 1; L.lensBurst = 1; SFX.skid(0.9); SFX.setEngine(1, 1.35); setTimeout(() => SFX.setEngine(1, 1.0), 400); });
+        once(L, 's2', t > 2.4, () => { L.burst = 1; SFX.skid(0.9); SFX.setEngine(1, 1.35); setTimeout(() => SFX.setEngine(1, 1.0), 400); });
         return Math.sin(t * 5.5) * 0.05;
       },
     }),
   },
-  { // 7. The fork: right, and upwards into the trees
-    name: 'fork', fy: 0.6, dur: 5,
+  { // 6. The fork: right, and upwards into the trees
+    name: 'fork', fy: 0.6, dur: 5, dirt: [0.6, 0.68],
     enter: S => { SFX.setEngine(0.8, 0.9); },
     draw: (ctx, t, dt, S, L) => {
       // unhurried: easing off as it climbs, and only about three-quarters of the way up the track by the cut
@@ -516,14 +514,14 @@ const SHOTS = [
       drawRain(ctx, t + S.time, 0.85);
     },
   },
-  { // 8. Uphill through the forest; it's nearly dark; they slow right down
-    name: 'side-forest', fy: 0.95, dur: 5,
+  { // 7. Uphill through the forest; it's nearly dark; they slow right down
+    name: 'side-forest', fy: 0.95, dur: 5, dirt: [0.7, 0.86],
     enter: S => { SFX.setRain(0.9); },
     draw: sideShot({ dur: 5, speed: t => U.lerp(420, 150, U.clamp(t / 5)), mode: 'forest', light: p => U.lerp(0.13, 0.05, p), rain: 0.95, tiltWorld: -0.06 }),
     tick: (t) => SFX.setEngine(1, U.lerp(1.1, 0.7, t / 5)),
   },
-  { // 9. Inside, creeping along… then J slams on the brakes
-    name: 'inside-forest', dur: 4.6,
+  { // 8. Inside, creeping along… then J slams on the brakes (Batch 3: cut at 3.5 s, just as he brakes)
+    name: 'inside-forest', dur: 3.5, dirt: 0.88,
     enter: S => { S.inGlass.fillHaze(0.95); },
     draw: insideShot({
       dur: 4.6, speed: t => t < 3.3 ? 4 : Math.max(0, 4 - (t - 3.3) * 6), img: 'fwdForest', fy: 0.45, zoom: p => 1.12 + Math.min(p, 0.72) * 0.1,
@@ -534,44 +532,29 @@ const SHOTS = [
       },
     }),
   },
-  { // 10. Two shocked faces: the car lurches to a stop, nose down
-    name: 'faces-brake', dur: 1.6,
-    draw: frontCloseShot({ dur: 1.6, img: 'frontShock', bg: 'forest', light: 0.1, rain: 0.9, shake: t => 16 * Math.exp(-t * 2), zoom: p => 1.55 + p * 0.12, bob: 0,
+  { // 9. Two shocked faces: the car lurches to a stop, nose down (Batch 3: as dark as the forest around them)
+    name: 'faces-brake', dur: 1.6, dirt: 0.9,
+    draw: frontCloseShot({ dur: 1.6, img: 'frontShock', bg: 'forest', light: 0.1, match: true, rain: 0.9, shake: t => 16 * Math.exp(-t * 2), zoom: p => 1.55 + p * 0.12, bob: 0,
       lurch: t => Math.sin(t * 9) * 0.02 * Math.exp(-t * 2.5) }),
   },
-  { // 11. Inside: the darkest moment. Rain, blackness, and just the dim backs of two café chairs in the headlights
-    name: 'inside-chairs', dur: 2.2,
-    draw: insideShot({
-      dur: 2.2, speed: t => Math.max(0, 3 - t * 3), cabin: 'inShocked', light: 0.03, rain: 0.9, hazeMax: 0.6, refill: 0.5, wiperSpeed: 1.5,
-      outside: (ctx, t, dt, S, L, light, sway) => {
-        // the car rolls the last few metres: the chairs come from 6 m to their resting 3.6 m away (the set layout)
-        const k = U.easeOut(U.clamp(t / 1.1)), dist = U.lerp(5.5, SET_STOP, k);
-        drawForwardImg(ctx, A.fwdClearing, { zoom: 1.2, fy: 0.5, light, dark: 0.95, sway: sway * 0.5, lights: 0.8, propsBright: 0.32,
-          glowY: setAheadFeetY(dist), props: c => drawSetAhead(c, dist, { table: false }) });
-      },
-      sway: (t, L) => { once(L, 'stop', t > 1.1, () => { L.jolt = 20; SFX.squelch(); }); return 0; },
-    }),
-  },
-  { // 12. Side, in near darkness: the car slides to a stop just short of a café chair, which stands
-    // in the headlight beam with its back to the car. The car and the forest are barely visible.
-    name: 'side-tap', fy: 0.95, dur: 3.4,
-    enter: S => { L_stopAt = S.scroll + 168; SFX.setEngine(0.3, 0.55); SFX.setRain(0.6); },   // 168 = how far it rolls before stopping
+  // (Batch 3: 'inside-chairs', the chair backs seen from inside, was removed.)
+  { // 10. Side, in near darkness: the car has just stopped short of the café chairs, which stand in the
+    // headlight beam facing the valley, in true side view as in shot 12. The car and the forest are barely visible.
+    // Batch 3: the sliding-in part is gone; this is what was its last 1.7 s, the car already stopped.
+    name: 'side-tap', fy: 0.95, dur: 1.7, dirt: 0.95,
+    enter: S => { L_stopAt = S.scroll; SFX.setEngine(0.3, 0.55); SFX.setRain(0.6); },
     draw: (ctx, t, dt, S, L) => {
-      const speed = Math.max(0, 320 * (1 - t / 1.05));
-      S.scroll += speed * dt;
-      const light = 0.04;
       ctx.save();
-      ctx.translate(800, 450); ctx.rotate(-0.03); ctx.scale(1.07, 1.07); ctx.translate(-800, -450);
-      drawSideWorld(ctx, { scroll: S.scroll, light, mode: 'forest' });
-      const car = { x: 720, ground: 868, s: 0.62, scroll: S.scroll, rotateAll: t < 1.05 ? Math.sin(t * 8) * 0.02 : 0, bumpAmt: U.clamp(speed / 300), worried: 1 };
+      forestStopFrame(ctx);
+      drawSideWorld(ctx, { scroll: S.scroll, light: 0.04, mode: 'forest' });
+      const car = { x: 720, ground: 868, s: 0.62, scroll: S.scroll, bumpAmt: 0, worried: 1, dirt: S.dirt };
       drawCarSide(ctx, car);
-      S.mud.update(dt); S.mud.draw(ctx);
       darken(ctx, 0.92);
       ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(-100, -100, W + 200, H + 200);   // the car and the trees barely there
-      // the set (same layout as every other shot), the near chair caught in the beam, facing out towards the valley;
+      // the set (same layout as every other shot), the near chair caught in the beam;
       // the far chair is lost in the dark and the table is beyond the light
       ctx.save(); ctx.filter = 'brightness(0.55) sepia(0.25)';
-      drawSetSide(ctx, 720 + (L_stopAt - S.scroll), 868, 0.62, { table: false, farAlpha: 0.12 });
+      drawSetSide(ctx, 720 + (L_stopAt - S.scroll), 868, 0.62, { table: false, farAlpha: 0.12, view: 'profile' });
       ctx.restore();
       drawCarLights(ctx, { ...car, lights: 0.85 });
       ctx.restore();
@@ -579,37 +562,46 @@ const SHOTS = [
     },
   },
   // (From here on the car has stopped: no more bouncing.)
-  { // 13. Smiles
-    name: 'faces-smile', dur: 3,
+  { // 11. Smiles (Batch 3: darkened with the forest around them)
+    name: 'faces-smile', dur: 3, dirt: 1,
     enter: S => { SFX.setEngine(0, 0.5); SFX.setRain(0.4); },
-    draw: frontCloseShot({ dur: 3, img: 'frontSmile', bg: 'forest', light: 0.32, rain: 0.25, zoom: () => 2.05, bob: 0 }),   // static
+    draw: frontCloseShot({ dur: 3, img: 'frontSmile', bg: 'forest', light: 0.16, match: true, rain: 0.25, zoom: () => 2.05, bob: 0 }),   // static
   },
-  { // 14. Side: forest to the left, a vast open space to the right; it brightens; birdsong
-    name: 'side-open', fy: 0.95, dur: 4.8,
+  { // 12. Side, from the same spot as shot 10, still in the forest: the storm clears and it brightens;
+    // sunlight and a sliver of open sky at the right edge hint at what's beyond; birdsong.
+    // Batch 3: moved back into the woods (the full view waits for shot 14), 3.5 s, the brightness
+    // curve as before (it ends where the old shot was at 3.5 s).
+    name: 'side-open', fy: 0.95, dur: 3.5, dirt: 1,
     enter: S => { SFX.setRain(0.05); setTimeout(() => SFX.birds(true), 1500); },
     draw: (ctx, t, dt, S, L) => {
       const p = t / 4.8, light = U.lerp(0.12, 1.15, U.ease(p));        // from near dark to a clearing sky, not yet full sun
-      drawCover(ctx, A.clearing, 1.025, 0.4, 0.8);                      // static: no slow zoom
-      drawCarSide(ctx, { x: 560, ground: 838, s: 0.62, scroll: S.scroll, bumpAmt: 0 });
-      drawSetSide(ctx, 560, 838, 0.62, { view: 'profile' });              // the chairs in true side view, facing the valley
+      ctx.save();
+      forestStopFrame(ctx);
+      drawSideWorld(ctx, { scroll: S.scroll, light, mode: 'forest' });
+      forestGlimpse(ctx, U.ease(U.clamp(p * 1.6)));
+      // S looking ahead, in wonder, once the painting exists (ART_PROMPTS L2); until then the usual picture
+      drawCarSide(ctx, { x: 720, ground: 868, s: 0.62, scroll: S.scroll, bumpAmt: 0, body: A.carWonder, dirt: S.dirt });
+      drawSetSide(ctx, 720, 868, 0.62, { view: 'profile' });              // the chairs in true side view, facing the valley
+      ctx.restore();
       darken(ctx, U.clamp((1 - light) * 0.75));
+      nightShade(ctx, light);
       drawRain(ctx, t + S.time, U.clamp(0.4 - p * 0.8));
       // shafts of sunlight from the right
-      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = U.clamp((p - 0.5) * 1.5) * 0.25;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = U.clamp((p - 0.4) * 1.5) * 0.3;
       const sg = ctx.createRadialGradient(W + 100, 300, 50, W + 100, 300, 1100);
       sg.addColorStop(0, 'rgba(255,230,160,1)'); sg.addColorStop(1, 'rgba(255,230,160,0)');
       ctx.fillStyle = sg; ctx.fillRect(0, 0, W, H); ctx.restore();
     },
   },
-  { // 15. Amazed, in awe, warm sunshine on their faces
-    name: 'faces-awe', dur: 3,
-    draw: frontCloseShot({ dur: 3, img: 'frontAwe', bg: 'sunlit', light: 1.55, rain: 0, zoom: () => 2.06, bob: 0 }),   // static
+  { // 13. Amazed, in awe, warm sunshine on their faces (bright, as before). Batch 3: 2 s.
+    name: 'faces-awe', dur: 2, dirt: 1,
+    draw: frontCloseShot({ dur: 2, img: 'frontAwe', bg: 'sunlit', light: 1.55, rain: 0, zoom: () => 2.06, bob: 0 }),   // static
   },
-  { // 16. Inside: the champagne landscape, a muddy grass track, a church… and a rainbow
+  { // 14. Inside: the champagne landscape, a muddy grass track, a church… and a rainbow
     name: 'inside-landscape', dur: 5,
     enter: S => { SFX.setRain(0); SFX.sparkle(); },
     draw: insideShot({
-      dur: 5, speed: 0, cabin: 'inSunny', light: 1.6, rain: 0, hazeMax: 0.4, refill: 0, wipers: false,
+      dur: 5, speed: 0, cabin: 'inHands', light: 1.6, rain: 0, hazeMax: 0.4, refill: 0, wipers: false,   // inHands: holding hands (Batch 3)
       outside: (ctx, t, dt, S, L) => {
         S.inGlass.hx.globalCompositeOperation = 'destination-out';
         S.inGlass.hx.globalAlpha = dt * 0.8; S.inGlass.hx.fillRect(0, 0, W, H);
@@ -620,7 +612,7 @@ const SHOTS = [
       },
     }),
   },
-  { // 17. Dolly forward through the windscreen; the title in the sky; the "!" bottle pops
+  { // 15. Dolly forward through the windscreen; the title in the sky; the "!" bottle pops
     name: 'dolly-title', fy: t => U.lerp(0.5, 0.2, U.ease(U.clamp(t / 2.6))), dur: 9,
     enter: (S, L) => { L.title = layoutTitle(S.ctx); },
     draw: (ctx, t, dt, S, L) => {
@@ -631,7 +623,7 @@ const SHOTS = [
       drawRainbow(ctx, 1, U.lerp(1150, 1200, zk), U.lerp(560, 800, zk), U.lerp(330, 600, zk));
       // the cabin grows and falls away as we pass through the windscreen
       const c = U.ease(U.clamp(t / 1.8));
-      if (c < 1) drawInterior(ctx, A.inSunny, 1.6, { alpha: 1 - c, scale: 1 + c * 2.4 });
+      if (c < 1) drawInterior(ctx, A.inHands, 1.6, { alpha: 1 - c, scale: 1 + c * 2.4 });
       // title
       const tt = t - 2.3;
       if (tt > 0) {
@@ -661,7 +653,7 @@ const SHOTS = [
       drawRisingBubbles(ctx, t, 30, U.clamp((t - 2) / 2));
     },
   },
-  { // 18. The couple, cheers! Then the menu appears.
+  { // 16. The couple, cheers! Then the menu appears.
     name: 'toast', fy: 0.95, dur: 5.5, hold: true,
     enter: S => { setTimeout(() => SFX.clink(), 1900); },
     draw: (ctx, t, dt, S, L) => {
@@ -709,6 +701,17 @@ const SHOTS = [
     },
   },
 ];
+/* How muddy the car is (0..1) at time t of shot i. Each shot's dirt is a number or [start, end]; a shot
+   without one keeps the level of the last shot before it that has one (so it works when jumping in with ?shot=N). */
+function shotDirt(i, t) {
+  for (let j = i; j >= 0; j--) {
+    const d = SHOTS[j].dirt;
+    if (d == null) continue;
+    if (typeof d === 'number') return d;
+    return j === i ? U.lerp(d[0], d[1], U.clamp(t / SHOTS[j].dur)) : d[1];
+  }
+  return 0;
+}
 let L_stopAt = 0;
 let S_ = null;   // shared state (for callbacks that need it)
 
@@ -716,10 +719,9 @@ const Intro = {
   running: false,
   start(ctx, { from = 0, onMenu } = {}) {
     const S = S_ = {
-      ctx, scroll: 0, z: 0, time: 0,
+      ctx, scroll: 0, z: 0, time: 0, dirt: 0,
       mud: new Particles(),
       inGlass: makeInsideGlass('rgba(78,86,100,1)'),
-      lens: new Glass({ path: c => { c.beginPath(); c.rect(0, 0, W, H); }, pivots: [], len: 0 }),
       off: makeCanvas(W, H),
     };
     S.offX = S.off.getContext('2d');
@@ -737,8 +739,11 @@ const Intro = {
     if (!this.running) return;
     const sh = SHOTS[this.idx];
     this.t += dt; this.S.time += dt;
-    sh.tick && sh.tick(this.t, this.S);
-    ctx.save(); sh.draw(ctx, this.t, dt, this.S, this.L); ctx.restore();
+    this.S.dirt = shotDirt(this.idx, this.t);
+    // shot.skip: the shot was trimmed at the start; its drawing still runs on its original clock
+    const st = this.t + (sh.skip || 0);
+    sh.tick && sh.tick(st, this.S);
+    ctx.save(); sh.draw(ctx, st, dt, this.S, this.L); ctx.restore();
     if (this.t >= sh.dur) {
       if (this.idx < SHOTS.length - 1) this.go(this.idx + 1);
       else if (!this.menuShown) {
