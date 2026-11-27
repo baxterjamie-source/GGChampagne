@@ -296,6 +296,19 @@ function liftLight(l, k) {
   for (let i = 0; i < 20; i++) { const m = (lo + hi) / 2; if (shadeFactor(m) < goal) lo = m; else hi = m; }
   return lo;
 }
+/* Where S and J are, in the car pictures' own pixels: behind the windscreen in the front-on pictures,
+   and in the front side window in the side views. [x, y, w, h] */
+const FRONT_PEOPLE = [345, 158, 462, 194], SIDE_PEOPLE = [512, 296, 192, 136];
+/* Brighten just the people: inside that box (in the picture's space, set by `space`), add the picture
+   again in 'lighter' mode at strength k (k = 0.2 × how bright the shading left them = 20% brighter). */
+function liftPeople(ctx, space, img, box, ox, oy, k) {
+  if (!(k > 0.002)) return;
+  ctx.save(); space(ctx);
+  ctx.beginPath(); ctx.roundRect(ox + box[0], oy + box[1], box[2], box[3], 18); ctx.clip();
+  ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = Math.min(1, k);
+  ctx.drawImage(img, ox, oy);
+  ctx.restore();
+}
 let _closeC = null;
 const closeScratch = () => _closeC || (_closeC = makeCanvas(W, H));
 
@@ -308,10 +321,13 @@ function frontCloseShot(o) {
     const sh = o.shake ? o.shake(t) : 0, z = o.zoom(p);
     frontBackdrop(ctx, S, o.bg || 'vines', light);
     const jx = (Math.random() - .5) * sh, jy = (Math.random() - .5) * sh;   // one shake per frame (placeCar may run twice)
-    const placeCar = (c, mud = true) => {
+    const carSpace = c => {
       c.translate(800 + jx, 470 + Math.sin(t * 19) * 5 * (o.bob ?? 1) + jy);
       if (o.lurch) c.rotate(o.lurch(t));
       c.scale(z, z);
+    };
+    const placeCar = (c, mud = true) => {
+      carSpace(c);
       c.drawImage(A[o.img], -575, -262);      // centred on the faces behind the windscreen
       if (mud) drawCarMud(c, A[o.img], 'front', S.dirt, -575, -262);
     };
@@ -324,11 +340,15 @@ function frontCloseShot(o) {
       x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
       x.clearRect(0, 0, W, H);
       x.save(); placeCar(x); x.restore();
-      faceShade(x, liftLight(light, o.faceLift ?? 1));
+      const carLight = liftLight(light, o.faceLift ?? 1);
+      faceShade(x, carLight);
       x.globalCompositeOperation = 'destination-in';            // keep only the car (the shading filled the whole canvas)
       x.save(); placeCar(x, false); x.restore();      // the car's outline only (the mud lies inside it anyway)
       x.globalCompositeOperation = 'source-over';
       ctx.drawImage(c, 0, 0);
+      // o.peopleLift (user 27 Nov): S and J themselves brighter again, the car round them left as it is.
+      // Adds a faint copy of the picture inside the windscreen: ×1.2 = 20% more light on the people.
+      if ((o.peopleLift ?? 1) > 1) liftPeople(ctx, carSpace, A[o.img], FRONT_PEOPLE, -575, -262, (o.peopleLift - 1) * shadeFactor(carLight));
     } else {
       darken(ctx, (1 - light) * 0.75); nightShade(ctx, light);
       ctx.save(); placeCar(ctx); ctx.restore();
@@ -463,16 +483,19 @@ const SHOTS = [
     tick: (t, S) => SFX.setRain(U.lerp(0, 0.5, U.seg(t / 8, 0.35, 0.8))),
   },
   { // 2. Front-on: the 2CV coming towards us through the rain, both a little worried
-    name: 'front-worried', fy: 0.9, dur: 3.8,
+    name: 'front-worried', fy: 0.9, dur: 4.2,
     enter: S => { SFX.setRain(0.55); SFX.setEngine(0.8, 0.95); },
     draw: (ctx, t, dt, S, L) => {
-      const p = t / 3.8, light = U.lerp(0.56, 0.48, p);
+      const p = t / 4.2, light = U.lerp(0.56, 0.48, p);
       // the muddy lane between the vines, running away behind them (the painted forward view, seen from the front of the car)
       drawCover(ctx, A.fwdVines, 1.0, 0.5, 0.5);
       mist(ctx, 0.15, 300);
       darken(ctx, (1 - light) * 0.5);
-      // the car comes along the lane towards us: on the ground, in the ruts, sized to the lane
-      const k = U.ease(p), gx = U.lerp(948, 905, k) + Math.sin(t * 1.7) * 6, gy = U.lerp(600, 740, k), s = U.lerp(0.27, 0.42, k);
+      // the car comes along the lane towards us, in the ruts, at a steady speed and right up to the camera
+      // (user 27 Nov: no slowing at the end, more dramatic). Its distance falls at a constant rate, so in
+      // perspective it grows ever faster: size = 0.27 / distance, from 0.27 to 1.05 (the windscreen low in the frame).
+      // Ground point and sideways drift follow the line the lane makes (fitted to the old 0.27 → 0.42 path).
+      const s = 0.27 / (1 - (1 - 0.27 / 1.05) * p), gx = 948 - 287 * (s - 0.27) + Math.sin(t * 1.7) * 6, gy = 348 + 933 * s;
       const bob = (Math.sin(t * 19) * 3 + Math.sin(t * 7.3) * 2) * s, sway = Math.sin(t * 2.6) * 0.018;
       groundShadow(ctx, gx, gy + 2, 360 * s, 0.5);
       ctx.save();
@@ -574,7 +597,7 @@ const SHOTS = [
   },
   { // 9. Two shocked faces: the car lurches to a stop, nose down (Batch 3: as dark as the forest around them)
     name: 'faces-brake', dur: 1.6, dirt: 0.9,
-    draw: frontCloseShot({ dur: 1.6, img: 'frontShock', bg: 'forest', light: 0.1, match: true, faceLift: 1.2, rain: 0.9, shake: t => 16 * Math.exp(-t * 2), zoom: p => 1.55 + p * 0.12, bob: 0,
+    draw: frontCloseShot({ dur: 1.6, img: 'frontShock', bg: 'forest', light: 0.1, match: true, faceLift: 1.2, peopleLift: 1.2, rain: 0.9, shake: t => 16 * Math.exp(-t * 2), zoom: p => 1.55 + p * 0.12, bob: 0,
       lurch: t => Math.sin(t * 9) * 0.02 * Math.exp(-t * 2.5) }),
   },
   // (Batch 3: 'inside-chairs', the chair backs seen from inside, was removed.)
@@ -591,6 +614,8 @@ const SHOTS = [
       drawCarSide(ctx, car);
       darken(ctx, 0.92);
       ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(-100, -100, W + 200, H + 200);   // the car and the trees barely there
+      // (user 27 Nov) S and J in the window 20% brighter: the shading above leaves ~0.12 of the light, so add 0.2 × that
+      liftPeople(ctx, c => carTransform(c, car), A.carBodyWorried, SIDE_PEOPLE, 0, 0, 0.2 * (1 - 0.82 * 0.92) * 0.5);
       // the set (same layout as every other shot), the near chair caught in the beam;
       // the far chair is lost in the dark and the table is beyond the light
       ctx.save(); ctx.filter = 'brightness(0.55) sepia(0.25)';
@@ -605,7 +630,7 @@ const SHOTS = [
   { // 11. Smiles (Batch 3: darkened with the forest around them)
     name: 'faces-smile', dur: 3, dirt: 1,
     enter: S => { SFX.setEngine(0, 0.5); SFX.setRain(0.4); },
-    draw: frontCloseShot({ dur: 3, img: 'frontSmile', bg: 'forest', light: 0.16, match: true, faceLift: 1.2, rain: 0.25, zoom: () => 2.05, bob: 0 }),   // static
+    draw: frontCloseShot({ dur: 3, img: 'frontSmile', bg: 'forest', light: 0.16, match: true, faceLift: 1.2, peopleLift: 1.2, rain: 0.25, zoom: () => 2.05, bob: 0 }),   // static
   },
   { // 12. Side, from the same spot as shot 10, still in the forest: the storm clears and it brightens;
     // sunlight and a sliver of open sky at the right edge hint at what's beyond; birdsong.

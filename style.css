@@ -160,6 +160,13 @@ html, body {
   font-size: .95rem; text-align: center;
 }
 @media (min-width: 720px) { .menu-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* the version, small and faint in the bottom right corner of the menu only (as in the user's games);
+   bump it with every push so it's easy to see on the phone whether the new build has loaded */
+.ver {
+  position: absolute; margin: 0; pointer-events: none;
+  right: max(10px, env(safe-area-inset-right)); bottom: max(6px, env(safe-area-inset-bottom));
+  color: var(--cream); opacity: .55; font-size: .62rem; letter-spacing: .04em;
+}
 
 /* ---------- French lesson ---------- */
 #lesson {
