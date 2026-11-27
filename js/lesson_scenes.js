@@ -50,7 +50,8 @@ const LESSON_SCENES = {
     // S & J at their table (1152x864), scaled to the waiter (v1.04: was 0.56), feet on the tiles at y 600,
     // between the church and the waiter. Their content spans x 165-990, feet at y 830 in the picture.
     // v1.05: 20% bigger again (0.41 -> 0.492) and shifted left to x 350 so J's chair clears the waiter
-    const sj = { s: 0.492 }; sj.x = 350 - 165 * sj.s; sj.y = 600 - 830 * sj.s;
+    // v1.06: 7% smaller (0.492 -> 0.4576), kept centred where they were (x 553) with feet on the same line
+    const sj = { s: 0.4576 }; sj.x = 553 - (165 + 990) / 2 * sj.s; sj.y = 600 - 830 * sj.s;
     const sjImg = (key, pose, on) => `<image class="pose${on ? ' on' : ''}" data-pose="${pose}" data-key="${ART[key]}" x="${sj.x}" y="${sj.y}" width="${1152 * sj.s}" height="${864 * sj.s}"/>`;
     // shapes over the S & J picture, given in that picture's pixels. Hit shapes are kept a little larger
     // than the things themselves so they are easy to tap on a phone.

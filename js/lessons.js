@@ -317,7 +317,9 @@ const Lessons = (() => {
       panel.innerHTML = ''; foot.innerHTML = ''; card = null;
       if (!queue.length) { heading('Bravo ! 🥂', 'All the cards are done.'); next(); return; }
       const { c, id } = queue[0];
-      panel.append(el('p', 'en small', `${queue.length} card${queue.length > 1 ? 's' : ''} to go`));
+      const again = queue.filter(q => q.missed).length;
+      panel.append(el('p', 'en small', `${queue.length} card${queue.length > 1 ? 's' : ''} to go${again ? ` · ${again} to try again` : ''}`));
+      if (queue[0].missed) panel.append(el('p', 'en small', '🔁 Encore une fois · one more try'));
       card = el('div', 'flip');
       card.innerHTML = `<div class="face front"><span class="emoji">${c.emoji || ''}</span><span class="en">${c.en}</span><span class="tapme">Touchez pour retourner · tap to flip</span></div>
         <div class="face back"><span class="fr">${nb(c.fr)}</span><span class="hint">${c.hint}</span>${c.tip ? `<span class="tip">💡 ${c.tip}</span>` : ''}</div>`;
@@ -326,11 +328,12 @@ const Lessons = (() => {
       flip = quiet => {
         if (card.classList.contains('flipped')) return;
         card.classList.add('flipped'); if (quiet !== true) Voice.say(c.fr);
-        // "see again later" puts the card at the back of the pile; "I know it" moves it up a Leitner box
-        const again = el('button', 'btn ghost', '🔁 Plus tard · <small>see again later</small>'), know = el('button', 'btn', '✓ Je sais · <small>I know it</small>');
-        again.onclick = () => { box[id] = 1; db.set('box', box); queue.push(queue.shift()); show(); };
-        know.onclick = () => { box[id] = Math.min(5, (box[id] || 1) + 1); db.set('box', box); hist.push(queue.shift()); show(); };
-        foot.append(again, know);
+        // "I missed it" sends the card to the back of the pile, and it keeps coming back until she gets it;
+        // "I got it" moves it up a Leitner box (only if it was right first time) and takes it off the pile
+        const miss = el('button', 'btn ghost', '✗ Raté ! · <small>I missed it</small>'), got = el('button', 'btn', '✓ Je l’ai ! · <small>I got it!</small>');
+        miss.onclick = () => { box[id] = 1; db.set('box', box); const q = queue.shift(); q.missed = true; queue.push(q); show(); };
+        got.onclick = () => { if (!queue[0].missed) { box[id] = Math.min(5, (box[id] || 1) + 1); db.set('box', box); } hist.push(queue.shift()); show(); };
+        foot.append(miss, got);
       };
       unflip = () => { card.classList.remove('flipped'); foot.innerHTML = ''; };
       card.onclick = flip;
