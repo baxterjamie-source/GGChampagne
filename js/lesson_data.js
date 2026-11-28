@@ -49,6 +49,7 @@ const LESSONS = [
       { emoji: '👋', en: 'Goodbye', fr: 'Au revoir', hint: 'oh ruh-VWAHR' },
       { emoji: '✨', en: 'Have a lovely evening', fr: 'Bonne soirée', hint: 'bun swah-RAY' },
       { emoji: '🥂', en: 'Cheers!', fr: 'Santé !', hint: 'sahn-TAY', tip: 'Look each other in the eye as you clink, or it\'s seven years of bad luck!' },
+      { emoji: '🐢', en: "Sorry, I didn't catch that. Could you repeat, please?", fr: "Pardon, je n'ai pas bien compris. Pourriez-vous répéter, s'il vous plaît ?", hint: 'par-DOHN, zhuh nay pah byan kohm-PREE. poo-ree-AY voo ray-pay-TAY, seel voo PLAY', tip: 'The most useful sentence of the trip! Add « plus lentement » to ask them to go more slowly. And here, tap 🐢 to hear any phrase slowly.' },
     ],
 
     // Step 4: quiz. Review questions from earlier weeks are added automatically.
@@ -78,13 +79,14 @@ const LESSONS = [
       { fr: "Deux coupes de champagne, s'il vous plaît.", en: 'Two glasses of champagne, please.', hint: 'duh KOOP duh shahm-PAN-yuh, seel voo PLAY' },
       { fr: 'Merci beaucoup !', en: 'Thank you very much!', hint: 'mair-SEE boh-KOO' },
       { fr: 'Santé !', en: 'Cheers!', hint: 'sahn-TAY' },
+      { fr: "Pardon, je n'ai pas bien compris. Pourriez-vous répéter, s'il vous plaît ?", en: "Sorry, I didn't catch that. Could you repeat, please?", hint: 'par-DOHN, zhuh nay pah byan kohm-PREE. poo-ree-AY voo ray-pay-TAY' },
     ],
   },
 
   {
     week: 1, unlock: '2027-01-01T08:00:00', scene: 'restaurant', music: 'accordion',
     titleFr: 'Au restaurant', titleEn: 'Menus, the bill and the bathroom',
-    dialogueView: { x: 200, y: 125, w: 800, h: 500 },
+    dialogueView: { x: 110, y: 150, w: 720, h: 450 },
 
     // a cosy village restaurant at night: each thing linked to a restaurant phrase. The scene shows the meal
     // (the menus, the bill and the card machine appear in the dialogue instead)
@@ -123,15 +125,11 @@ const LESSONS = [
 
     cards: [
       { emoji: '📜', en: 'The menu, please', fr: "La carte, s'il vous plaît.", hint: 'lah KART, seel voo PLAY', tip: '« Le menu » is the fixed-price set meal. The full list of dishes is « la carte ».' },
-      { emoji: '🍷', en: 'Could you bring us the wine list?', fr: 'Pourriez-vous nous apporter la carte des vins ?', hint: 'poo-ree-AY voo nooz ah-por-TAY lah kart day VAN' },
       { emoji: '🌸', en: 'Which rosé champagne do you recommend?', fr: 'Quel champagne rosé nous conseillez-vous ?', hint: 'kel shahm-PAN-yuh roh-ZAY noo kohn-say-AY VOO', tip: 'In Champagne, sparkling rosé is champagne rosé. Elsewhere in France, ask for « un crémant rosé ».' },
-      { emoji: '🍽️', en: 'What is your favourite dish here?', fr: 'Quel est votre plat préféré ici ?', hint: 'kel ay VOH-truh plah pray-fay-RAY ee-SEE' },
-      { emoji: '🤔', en: 'What do you recommend?', fr: 'Qu\'est-ce que vous nous conseillez ?', hint: 'kess-kuh voo noo kohn-say-AY' },
       { emoji: '🚻', en: 'Where are the toilets, please?', fr: "Où sont les toilettes, s'il vous plaît ?", hint: 'oo sohn lay twah-LET', tip: '« Les toilettes » is always plural. You may also see « WC ».' },
       { emoji: '💧', en: 'A jug of tap water, please', fr: "Une carafe d'eau, s'il vous plaît.", hint: 'ün kah-RAHF DOH', tip: 'Tap water is free by law. « Une bouteille d\'eau » gets you bottled water, and a bill for it.' },
       { emoji: '😋', en: 'Everything was delicious', fr: 'Tout était délicieux !', hint: 'toot ay-TAY day-lee-SYUH' },
       { emoji: '🧾', en: 'The bill, please', fr: "L'addition, s'il vous plaît.", hint: 'lah-dee-SYOHN, seel voo PLAY', tip: 'The waiter won\'t bring it until you ask: rushing you would be rude.' },
-      { emoji: '💶', en: 'Do we pay at the till or at the table?', fr: 'On paie à la caisse ou à table ?', hint: 'ohn PAY ah lah KESS oo ah TAH-bl' },
       { emoji: '💳', en: 'By card. Can you bring the machine?', fr: 'Par carte. Vous pouvez apporter la machine ?', hint: 'par KART. voo poo-VAY ah-por-TAY lah mah-SHEEN' },
       { emoji: '☀️', en: 'Can we sit outside?', fr: "On peut s'asseoir en terrasse ?", hint: 'ohn puh sah-SWAHR ahn teh-RASS' },
     ],
@@ -142,10 +140,15 @@ const LESSONS = [
         { t: 'Le menu', why: '« Le menu » is a fixed-price set meal (starter, main, dessert). Lovely if you want it, but it isn\'t the whole list.' },
         { t: "L'addition", why: '« L\'addition » is the bill, for the end of the meal.' },
       ], answer: 'La carte' },
+      // v1.08: four phrases moved here from the flip cards (the user finds putting words in order the most helpful)
+      { type: 'order', prompt: 'Could you bring us the wine list?', en: 'Tap the words in order.', words: ['Pourriez-vous', 'nous', 'apporter', 'la', 'carte', 'des', 'vins ?'], why: '« Pourriez-vous… ? » (could you…?) is the politest way to ask for anything. « La carte des vins » is the wine list.' },
       { type: 'tap', prompt: 'Touchez le seau à champagne.', en: 'Tap the right thing in the picture.', answer: 'seau', why: 'Le seau à champagne, keeping the rosé cold.' },
+      { type: 'order', prompt: 'What is your favourite dish here?', en: 'Tap the words in order.', words: ['Quel', 'est', 'votre', 'plat', 'préféré', 'ici ?'], why: 'Like the colour in « champagne rosé », « préféré » comes after the noun: « votre plat préféré ».' },
       { type: 'order', prompt: 'Where are the toilets, please?', en: 'Tap the words in order.', words: ['Où', 'sont', 'les', 'toilettes,', "s'il", 'vous', 'plaît ?'], why: '« Les toilettes » is plural, so it\'s « où SONT », not « où est ».' },
       { type: 'tap', prompt: 'Au fond, à droite. Touchez la porte des toilettes.', en: 'At the back, on the right. Tap the right thing in the picture.', answer: 'porte', why: 'La porte des toilettes: at the back, on the right, just as the waiter said.' },
       { type: 'tap', prompt: 'Touchez la caisse.', en: 'Tap the right thing in the picture.', answer: 'caisse', why: 'La caisse: the till. « On paie à la caisse ou à table ? »' },
+      { type: 'order', prompt: 'Do we pay at the till or at the table?', en: 'Tap the words in order.', words: ['On', 'paie', 'à', 'la', 'caisse', 'ou', 'à', 'table ?'], why: '« On » (one / we) is how the French say "we" in everyday speech. « À table » needs no « la ».' },
+      { type: 'order', prompt: 'What do you recommend?', en: 'Tap the words in order.', words: ["Qu'est-ce", 'que', 'vous', 'nous', 'conseillez ?'], why: '« Qu\'est-ce que » starts a "what" question. « Vous nous conseillez » = you advise us.' },
       { type: 'choice', prompt: 'You would like free tap water. You say…', options: [
         { t: "Une carafe d'eau, s'il vous plaît.", why: 'A jug of tap water: free in every French restaurant.' },
         { t: "Une bouteille d'eau, s'il vous plaît.", why: 'That gets you a bottle of mineral water, and it goes on the bill. Fine if you want sparkling (« de l\'eau gazeuse »).' },

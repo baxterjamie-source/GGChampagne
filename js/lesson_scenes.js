@@ -26,6 +26,35 @@ const LESSON_ART = {
   },
 };
 
+/* Touch-ups after keying, per picture: glass shapes (in the picture's pixels) where the green seen THROUGH the glass
+   is turned into a pale glass tint instead of being keyed away. The restaurant's right-hand water tumbler stands
+   above the table's back edge, so its top keyed out and looked broken (v1.08). A shape is a cylinder:
+   { x0, x1, top, bottom }, with an elliptical rim at its top (4 px deep). */
+const GLASS_FILL = {};
+for (const k of ['sj_menus', 'sj_asking', 'sj_meal', 'sj_bill']) GLASS_FILL[`lessons/restaurant/${k}.jfif`] = [{ x0: 605, x1: 644, top: 413, bottom: 438 }];
+
+function fillGlass(c, raw, shapes) {
+  const g = c.getContext('2d');
+  const src = document.createElement('canvas'); src.width = raw.width; src.height = raw.height;
+  const sg = src.getContext('2d'); sg.drawImage(raw, 0, 0);
+  for (const { x0, x1, top, bottom } of shapes) {
+    const cx = (x0 + x1) / 2, rx = (x1 - x0) / 2, ry = 4, y0 = top - ry, w = x1 - x0 + 1, h = bottom - y0 + 1;
+    const im = g.getImageData(x0, y0, w, h), d = im.data, s = sg.getImageData(x0, y0, w, h).data;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const px = x0 + x, py = y0 + y;
+      if (py < top && ((px - cx) / rx) ** 2 + ((py - top) / ry) ** 2 > 1) continue;   // outside the rim
+      const i = (y * w + x) * 4, r = s[i], gr = s[i + 1], b = s[i + 2];
+      const green = gr - Math.max(r, b);
+      if (green < 25) continue;                                   // a painted line or highlight: keep it
+      const k = Math.min(1, (green - 25) / 60);                   // how much of it was green
+      const lum = (r + b) / 2;                                    // the shading without the green
+      d[i] = 0.55 * lum + 0.45 * 226; d[i + 1] = 0.55 * lum + 0.45 * 234; d[i + 2] = 0.55 * lum + 0.45 * 240;
+      d[i + 3] = Math.max(d[i + 3] * (1 - k), 150);
+    }
+    g.putImageData(im, x0, y0);
+  }
+}
+
 const LESSON_SCENES = {
   _keyed: {},   // path -> blob URL of the keyed picture (kept for the session)
 
@@ -38,6 +67,7 @@ const LESSON_SCENES = {
         this._keyed[path] = (async () => {
           const raw = await loadImage(path);
           const c = keyGreen(raw, null, 4);
+          if (GLASS_FILL[path]) fillGlass(c, raw, GLASS_FILL[path]);
           const blob = await new Promise(r => c.toBlob(r, 'image/png'));
           return URL.createObjectURL(blob);
         })();
@@ -82,6 +112,7 @@ const LESSON_SCENES = {
 <defs>
   <radialGradient id="t-bulb"><stop offset="0" stop-color="#FFF4C8" stop-opacity=".9"/><stop offset="1" stop-color="#FFD873" stop-opacity="0"/></radialGradient>
   <radialGradient id="hl-gold"><stop offset="0" stop-color="#FFE9A8" stop-opacity=".75"/><stop offset=".6" stop-color="#F2C14E" stop-opacity=".35"/><stop offset="1" stop-color="#F2A900" stop-opacity="0"/></radialGradient>
+  <radialGradient id="hl-glow"><stop offset="0" stop-color="#9CFFB4" stop-opacity=".12"/><stop offset=".6" stop-color="#5CF08A" stop-opacity=".25"/><stop offset=".85" stop-color="#3CE070" stop-opacity=".95"/><stop offset="1" stop-color="#3CE070" stop-opacity="0"/></radialGradient>
   <radialGradient id="hl-green"><stop offset="0" stop-color="#B8F5C0" stop-opacity=".8"/><stop offset="1" stop-color="#7CDB8A" stop-opacity="0"/></radialGradient>
   <radialGradient id="hl-red"><stop offset="0" stop-color="#FFB3B3" stop-opacity=".8"/><stop offset="1" stop-color="#FF6B6B" stop-opacity="0"/></radialGradient>
 </defs>
@@ -137,19 +168,22 @@ ${bulbs}
   /* Lesson 1: a cosy village restaurant at night. The background (1344x756) is 16:9, so it is scaled to the full
      height (x0.82672) and trimmed ~56 px at each side. In the viewBox: the till x 2-125, the wine rack x 230-473
      (y 103-316), the chalkboard x 508-686 (y 160-288), the toilet door x 755-887 (y 165-475, plaque at 817,234),
-     the floor from y 475. S & J sit left of centre; the waiter stands on the right, just past the door's plaque. */
+     the floor from y 475. S & J sit left of centre; the waiter stands close to their table, between the chalkboard
+     and the toilet door (v1.08, the user's call), leaving the door's plaque clear. */
   restaurant() {
     const ART = LESSON_ART.restaurant, bg = assetUrl('images/' + ART.bg);
     // S & J (1152x864, the same framing in all four poses: content x 164-986, feet at y 826; the bucket stand in
-    // sj_meal reaches y 858). Same size as on the terrace, centred on x 440, feet at y 605.
-    const sj = { s: 0.4576 }; sj.x = 440 - (164 + 986) / 2 * sj.s; sj.y = 605 - 826 * sj.s;
+    // sj_meal reaches y 858). Same size as on the terrace, centred on x 400 (v1.08: was 440, to make room for the
+    // waiter), feet at y 605. Their content spans x 137-513.
+    const sj = { s: 0.4576 }; sj.x = 400 - (164 + 986) / 2 * sj.s; sj.y = 605 - 826 * sj.s;
     const sjImg = (key, pose, on) => `<image class="pose${on ? ' on' : ''}" data-pose="${pose}" data-key="${ART[key]}" x="${sj.x.toFixed(1)}" y="${sj.y.toFixed(1)}" width="${(1152 * sj.s).toFixed(1)}" height="${(864 * sj.s).toFixed(1)}"/>`;
     const P = (ix, iy) => [(sj.x + ix * sj.s).toFixed(1), (sj.y + iy * sj.s).toFixed(1)];
     const E = (ix, iy, rx, ry, a = '') => { const [cx, cy] = P(ix, iy); return `<ellipse ${a} cx="${cx}" cy="${cy}" rx="${(rx * sj.s).toFixed(1)}" ry="${(ry * sj.s).toFixed(1)}"/>`; };
     const R = (x0, y0, x1, y1, a = '') => { const [x, y] = P(x0, y0); return `<rect ${a} x="${x}" y="${y}" width="${((x1 - x0) * sj.s).toFixed(1)}" height="${((y1 - y0) * sj.s).toFixed(1)}"/>`; };
     // the waiter (832x1248, feet at y 1186, content right edge ~640): all three poses already face left, so none is
-    // mirrored. Same size as on the terrace, feet on the same line as S & J.
-    const w = { s: 0.4 }; w.x = 1000 - 640 * w.s; w.y = 605 - 1186 * w.s;
+    // mirrored. Same size as on the terrace, feet on the same line as S & J. v1.08: his right edge at x 790 (was the
+    // frame's edge), so he stands by the table, over the chalkboard's right end, and the door from x 790 stays clear.
+    const w = { s: 0.4 }; w.x = 790 - 640 * w.s; w.y = 605 - 1186 * w.s;
     const wImg = (key, pose, on) => `<image class="pose${on ? ' on' : ''}" data-pose="${pose}" data-key="${ART[key]}" x="${w.x}" y="${w.y.toFixed(1)}" width="${832 * w.s}" height="${1248 * w.s}"/>`;
     // a soft flicker over the two pendant lamps and the candle (the candle sits on the table in every pose)
     const [cx, cy] = P(563, 432);
@@ -162,6 +196,7 @@ ${bulbs}
 <defs>
   <radialGradient id="r-lamp"><stop offset="0" stop-color="#FFF4C8" stop-opacity=".8"/><stop offset="1" stop-color="#FFD873" stop-opacity="0"/></radialGradient>
   <radialGradient id="hl-gold"><stop offset="0" stop-color="#FFE9A8" stop-opacity=".75"/><stop offset=".6" stop-color="#F2C14E" stop-opacity=".35"/><stop offset="1" stop-color="#F2A900" stop-opacity="0"/></radialGradient>
+  <radialGradient id="hl-glow"><stop offset="0" stop-color="#9CFFB4" stop-opacity=".12"/><stop offset=".6" stop-color="#5CF08A" stop-opacity=".25"/><stop offset=".85" stop-color="#3CE070" stop-opacity=".95"/><stop offset="1" stop-color="#3CE070" stop-opacity="0"/></radialGradient>
   <radialGradient id="hl-green"><stop offset="0" stop-color="#B8F5C0" stop-opacity=".8"/><stop offset="1" stop-color="#7CDB8A" stop-opacity="0"/></radialGradient>
   <radialGradient id="hl-red"><stop offset="0" stop-color="#FFB3B3" stop-opacity=".8"/><stop offset="1" stop-color="#FF6B6B" stop-opacity="0"/></radialGradient>
 </defs>
@@ -176,10 +211,10 @@ ${bulbs}
 ${glows}
 
 <g class="obj" data-id="serveur">
-  <ellipse class="hl" cx="912" cy="380" rx="90" ry="235"/><rect x="822" y="150" width="178" height="455" ${hit}/>
+  <ellipse class="hl" cx="702" cy="380" rx="90" ry="235"/><rect x="615" y="150" width="175" height="455" ${hit}/>
 </g>
 <g class="obj" data-id="porte">
-  <ellipse class="hl" cx="805" cy="300" rx="62" ry="155"/><rect x="755" y="165" width="72" height="310" ${hit}/>
+  <ellipse class="hl" cx="840" cy="300" rx="62" ry="155"/><rect x="792" y="165" width="95" height="310" ${hit}/>
 </g>
 <g class="obj" data-id="caisse">
   <ellipse class="hl" cx="64" cy="285" rx="80" ry="72"/><rect x="0" y="212" width="135" height="140" ${hit}/>
@@ -188,7 +223,7 @@ ${glows}
   <ellipse class="hl" cx="352" cy="205" rx="140" ry="118"/><rect x="230" y="103" width="243" height="150" ${hit}/>
 </g>
 <g class="obj" data-id="ardoise">
-  <ellipse class="hl" cx="597" cy="224" rx="105" ry="75"/><rect x="508" y="160" width="178" height="98" ${hit}/>
+  <ellipse class="hl" cx="565" cy="215" rx="70" ry="65"/><rect x="508" y="160" width="110" height="80" ${hit}/>
 </g>
 <g class="obj" data-id="chaise">
   ${E(228, 600, 90, 220, 'class="hl"')}${R(165, 340, 290, 800, hit)}

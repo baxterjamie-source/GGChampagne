@@ -112,11 +112,18 @@ const Lessons = (() => {
   };
   // a lesson opened without a tap (dev link) can only start sound after the first touch
   root.addEventListener('pointerdown', () => { if (L && L.music && !Music.src) Music.play(L.music); });
+  // 🔊 at the normal teaching speed, and beside it 🐢 slowly (v1.08, the user's request)
+  const SLOW = 0.5;
   function sayBtn(text, label = '🔊') {
+    const wrap = el('span', 'say-pair');
     const b = el('button', 'say', label);
-    b.setAttribute('aria-label', 'Écouter');
+    b.setAttribute('aria-label', 'Écouter'); b.title = 'Écouter · listen';
     b.onclick = e => { e.stopPropagation(); Voice.say(text, b); };
-    return b;
+    const t = el('button', 'say slow', '🐢');
+    t.setAttribute('aria-label', 'Écouter lentement'); t.title = 'Lentement · listen slowly';
+    t.onclick = e => { e.stopPropagation(); Voice.say(text, t, SLOW); };
+    wrap.append(b, t);
+    return wrap;
   }
 
   /* ---------- Scene: glow + zoom ---------- */
@@ -522,22 +529,43 @@ const Lessons = (() => {
   /* ---------- The À dire list (its own tab) ---------- */
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   let rec = null;
+  // what each button in the À dire list does (the ? beside the heading)
+  const SAYIT_HELP = `<p><b>How it works:</b> phrases from each lesson wait here until you're somewhere you can speak aloud. Say each one a few times, then tick it off.</p>
+    <dl>
+      <dt>🔊 Écouter</dt><dd><i>listen</i>: hear the phrase at teaching speed.</dd>
+      <dt>🐢</dt><dd><i>slowly</i>: hear it at half speed, syllable by syllable.</dd>
+      <dt>🎙 M'enregistrer</dt><dd><i>record me</i>: records you for up to 6 seconds (tap ⏹ Stop to finish sooner). The first time, your phone asks to use the microphone: say Allow.</dd>
+      <dt>▶ Moi</dt><dd><i>play me back</i>: appears after a recording. Compare yourself with 🔊.</dd>
+      <dt>👂 Vérifier</dt><dd><i>check me</i>: say the phrase and the phone tells you what it heard. 🥂 Parfait ! means it understood you. (Only on phones and browsers that can recognise speech, such as Chrome.)</dd>
+      <dt>✓ Dit !</dt><dd><i>said it</i>: takes the phrase off the list. It moves to <i>Déjà dit</i> at the bottom, where ↺ puts it back.</dd>
+    </dl>
+    <p>No sound? Check the phone isn't on silent, and turn the volume up.</p>`;
   function renderSayIt() {
     onObj = null; clearMarks(); zoomTo(FULL);
     panel.innerHTML = ''; foot.innerHTML = '';
     const list = db.get('sayit', []);
-    heading('À dire 🗣️', 'For when you can speak aloud: listen, say it, record yourself if you like, then mark it said.');
-    if (!list.length) panel.append(el('p', 'en', 'Nothing here yet. Phrases arrive at the end of each lesson.'));
+    // v1.08: the open lesson's phrases are here straight away (before, they only arrived at the end of the lesson,
+    // so the tab looked empty and broken)
+    if (L) for (const s of L.sayIt) if (!list.some(x => x.fr === s.fr)) list.push({ ...s, week: L.week, said: false });
+    const head = el('p', 'lead', 'À dire 🗣️ ');
+    const help = el('button', 'help-btn', '?'); help.setAttribute('aria-label', 'Aide · how this works'); help.title = 'Aide · how this works';
+    const helpBox = el('div', 'help-box', SAYIT_HELP); helpBox.hidden = true;
+    help.onclick = () => { helpBox.hidden = !helpBox.hidden; help.classList.toggle('on', !helpBox.hidden); };
+    head.append(help);
+    panel.append(head, el('p', 'en', 'To say aloud, when you can: listen, say it, record yourself if you like, then tick it off. Tap <b>?</b> for what each button does.'), helpBox);
+    if (SFX.muted) panel.append(el('p', 'en small', '🔇 Sound is off in this test link (?mute), so nothing will play.'));
+    if (!list.length) panel.append(el('p', 'en', 'Nothing here yet. Phrases arrive with each lesson.'));
     const save = () => { db.set('sayit', list); updateTabCount(); };
+    save();
     list.filter(x => !x.said).forEach(item => {
       const row = el('div', 'say-row', `<span class="fr">${nb(item.fr)}</span><span class="hint">${item.hint || ''}</span><span class="en">${item.en}</span><div class="ctrls"></div><div class="heard"></div>`);
       const ctrls = row.querySelector('.ctrls'), heard = row.querySelector('.heard');
-      const play = el('button', 'chip', '▶ Moi'); play.hidden = true;
-      const recBtn = el('button', 'chip', '🎙 M\'enregistrer');
-      recBtn.onclick = () => toggleRec(recBtn, play);
+      const play = el('button', 'chip', '▶ Moi <small>· play me</small>'); play.hidden = true;
+      const recBtn = el('button', 'chip', '🎙 M\'enregistrer <small>· record me</small>');
+      recBtn.onclick = () => toggleRec(recBtn, play, heard);
       ctrls.append(sayBtn(item.fr, '🔊 Écouter'), recBtn, play);
-      if (SR) { const c = el('button', 'chip', '👂 Vérifier'); c.onclick = () => checkSpeech(item.fr, c, heard); ctrls.append(c); }
-      const said = el('button', 'chip gold', '✓ Dit !');
+      if (SR) { const c = el('button', 'chip', '👂 Vérifier <small>· check me</small>'); c.onclick = () => checkSpeech(item.fr, c, heard); ctrls.append(c); }
+      const said = el('button', 'chip gold', '✓ Dit ! <small>· said it</small>');
       said.onclick = () => { item.said = true; save(); row.classList.add('gone'); setTimeout(renderSayIt, 350); };
       ctrls.append(said);
       panel.append(row);
@@ -555,23 +583,30 @@ const Lessons = (() => {
     }
     if (L) next('← Leçon', () => tab('lesson'));
   }
-  async function toggleRec(btn, play) {
+  async function toggleRec(btn, play, out) {
     if (rec && rec.state === 'recording') { rec.stop(); return; }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const chunks = [];
-      rec = new MediaRecorder(stream);
-      rec.ondataavailable = e => chunks.push(e.data);
-      rec.onstop = () => {
+      const chunks = [], r = new MediaRecorder(stream);
+      rec = r;
+      r.ondataavailable = e => chunks.push(e.data);
+      r.onstop = () => {
         stream.getTracks().forEach(t => t.stop());
-        const url = URL.createObjectURL(new Blob(chunks, { type: rec.mimeType }));
+        const url = URL.createObjectURL(new Blob(chunks, { type: r.mimeType }));
         play.hidden = false;
-        play.onclick = () => { const a = new Audio(url); a.muted = SFX.muted; a.play(); };
-        btn.textContent = '🎙 Encore'; btn.classList.remove('rec');
+        play.onclick = () => { const a = new Audio(url); a.muted = SFX.muted; a.play().catch(() => { }); };
+        btn.innerHTML = '🎙 Encore <small>· again</small>'; btn.classList.remove('rec');
+        if (out) out.textContent = 'Recorded! Tap ▶ Moi to hear yourself.';
       };
-      rec.start(); btn.textContent = '⏹ Stop'; btn.classList.add('rec');
-      setTimeout(() => { if (rec && rec.state === 'recording') rec.stop(); }, 6000);
-    } catch { btn.textContent = '🎙 No microphone'; btn.disabled = true; }
+      r.start(); btn.innerHTML = '⏹ Stop'; btn.classList.add('rec');
+      if (out) out.textContent = 'Recording… say the phrase now.';
+      setTimeout(() => { if (r.state === 'recording') r.stop(); }, 6000);
+    } catch (e) {
+      // say WHY, so it can be fixed (usually the microphone permission)
+      if (out) out.textContent = e && e.name === 'NotAllowedError'
+        ? 'The microphone is blocked. Allow it for this site in the browser settings (the 🔒 or ⓘ beside the address), then try again.'
+        : 'No microphone available here.';
+    }
   }
   const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z' ]/g, ' ').split(/\s+/).filter(Boolean);
   function similarity(target, heard) { const t = norm(target), h = new Set(norm(heard)); return t.filter(w => h.has(w)).length / t.length; }
@@ -582,9 +617,13 @@ const Lessons = (() => {
       const alts = [...e.results[0]].map(a => a.transcript), best = Math.max(...alts.map(a => similarity(target, a)));
       out.innerHTML = best >= .75 ? '🥂 <b>Parfait !</b>' : best >= .4 ? `Presque ! I heard “${alts[0]}”. Encore une fois ?` : `I heard “${alts[0]}”. Try once more, a little slower?`;
     };
-    r.onerror = () => { out.textContent = 'Didn\'t catch that. Try again?'; };
-    r.onend = () => { btn.textContent = '👂 Vérifier'; };
-    r.start();
+    r.onerror = e => {
+      out.textContent = e.error === 'not-allowed' || e.error === 'service-not-allowed'
+        ? 'The microphone is blocked. Allow it for this site in the browser settings, then try again.'
+        : e.error === 'no-speech' ? 'I didn\'t hear anything. Tap 👂 and speak straight away.' : 'Didn\'t catch that. Try again?';
+    };
+    r.onend = () => { btn.innerHTML = '👂 Vérifier <small>· check me</small>'; };
+    try { r.start(); } catch { out.textContent = 'Speech checking isn\'t available here.'; btn.innerHTML = '👂 Vérifier <small>· check me</small>'; }
   }
 
   /* ---------- Menu hooks ---------- */
