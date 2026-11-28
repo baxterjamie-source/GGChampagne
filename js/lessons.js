@@ -16,7 +16,7 @@ const Lessons = (() => {
 
   const STEPS = ['La scène', 'Le dialogue', 'Les cartes', 'Le quiz', 'À dire'];
   const STEPS_EN = ['the scene', 'the conversation', 'flash cards', 'quiz', 'to say aloud'];
-  const WHO = { serveur: 'Le serveur', vous: 'Vous' };
+  const WHO = { serveur: 'Le serveur', marchande: 'La marchande', vous: 'Vous' };
   const FULL = { x: 0, y: 0, w: 1000, h: 625 };
   const root = q('#lesson'), sceneBox = q('#lesson-scene'), panel = q('#lesson-panel'), foot = q('#lesson-foot');
   let L = null, step = 0, svg = null, onObj = null;
@@ -295,12 +295,14 @@ const Lessons = (() => {
     const D = L.dialogue;
     let i = 0;   // lines shown
     const btn = next('Suivant ›', () => { if (i < D.length) addLine(); else goStep(step + 1); });
-    // the scene as it should look after line i: poses replayed from the start, the waiter nods if he spoke last
+    // the scene as it should look after line i: poses replayed from the start, and whoever spoke last (the waiter,
+    // the stallholder…: the .obj with the speaker's id) nods
     function sync(animate) {
       LESSON_SCENES.pose(svg, null);
       for (let k = 0; k < i; k++) if (D[k].pose) LESSON_SCENES.pose(svg, D[k].pose);
-      const waiter = obj('serveur');
-      if (waiter) { waiter.classList.remove('talking'); if (animate && D[i - 1].who === 'serveur') { void waiter.getBBox(); waiter.classList.add('talking'); } }
+      svg.querySelectorAll('.obj.talking').forEach(g => g.classList.remove('talking'));
+      const who = D[i - 1] && D[i - 1].who, speaker = who && who !== 'vous' ? obj(who) : null;
+      if (speaker && animate) { void speaker.getBBox(); speaker.classList.add('talking'); }
       btn.textContent = i >= D.length ? 'Continuer ›' : 'Suivant ›';
       if (list.lastElementChild) list.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }

@@ -271,7 +271,7 @@ html, body {
 .art .pose { opacity: 0; transition: opacity .6s ease; pointer-events: none; }
 .art .pose.on { opacity: 1; }
 .art .waiter { transform-box: fill-box; transform-origin: 50% 100%; }
-.art:has(.obj[data-id="serveur"].talking) .waiter { animation: nod .5s ease-in-out 3; }
+.art:has(.obj.talking) .waiter { animation: nod .5s ease-in-out 3; }   /* the scene's one local character (waiter, stallholder…) */
 @keyframes nod { 50% { transform: rotate(-1.2deg) translateY(-2px); } }
 .lesson-scene.popped { animation: popped .6s ease; }
 @keyframes popped { 40% { transform: scale(1.03); box-shadow: 0 0 40px rgba(242,169,0,.6); } }
@@ -318,7 +318,7 @@ html, body {
 /* dialogue */
 .chat { display: flex; flex-direction: column; gap: 8px; }
 .bubble { max-width: 85%; padding: 9px 13px; border-radius: 16px; cursor: pointer; animation: rise-in .3s ease; }
-.bubble.serveur { align-self: flex-start; background: rgba(251,245,233,.1); border-bottom-left-radius: 4px; }
+.bubble.serveur, .bubble.marchande { align-self: flex-start; background: rgba(251,245,233,.1); border-bottom-left-radius: 4px; }
 .bubble.vous { align-self: flex-end; background: rgba(232,154,154,.25); border-bottom-right-radius: 4px; }
 .bubble .who { display: block; font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; color: var(--gold-hi); }
 .bubble .fr { display: block; font-family: var(--serif); font-size: 1.1rem; }

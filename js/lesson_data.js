@@ -210,4 +210,105 @@ const LESSONS = [
       { fr: 'Par carte. Vous pouvez apporter la machine ?', en: 'By card. Can you bring the machine?', hint: 'par KART. voo poo-VAY ah-por-TAY lah mah-SHEEN' },
     ],
   },
+
+  {
+    week: 2, unlock: '2027-01-08T08:00:00', scene: 'marche', music: 'accordion',
+    titleFr: 'Au marché', titleEn: 'Days, times and shopping',
+    dialogueView: { x: 50, y: 145, w: 760, h: 475 },
+
+    // a Saturday-morning market on the village square
+    objects: [
+      { id: 'marchande', fr: 'la marchande', en: 'the stallholder', hint: 'lah mar-SHAHND', tip: 'A man would be « le marchand ».', link: { fr: "C'est combien, s'il vous plaît ?", en: 'How much is it, please?' } },
+      { id: 'fraises', fr: 'les fraises', g: 'f', en: 'the strawberries', hint: 'lay FREZ', tip: 'One strawberry is « une fraise ». Fruit is often sold by the kilo, or by the punnet: « une barquette ».', link: { fr: "Je voudrais un kilo de fraises, s'il vous plaît.", en: "I'd like a kilo of strawberries, please." } },
+      { id: 'cerises', fr: 'les cerises', g: 'f', en: 'the cherries', hint: 'lay suh-REEZ', tip: 'June is cherry season in France.', link: { fr: 'Elles sont de la région ?', en: 'Are they local?' } },
+      { id: 'fromage', fr: 'le fromage', en: 'the cheese', hint: 'luh froh-MAHZH', tip: 'The local cheeses here are Chaource and Langres. Ask for « un morceau » (a piece).', link: { fr: 'Je peux goûter ?', en: 'May I taste?' } },
+      { id: 'fleurs', fr: 'les fleurs', g: 'f', en: 'the flowers', hint: 'lay FLUR', tip: 'These are « des pivoines », peonies, in season in June.', link: { fr: "Un bouquet de pivoines, s'il vous plaît.", en: 'A bunch of peonies, please.' } },
+      { id: 'balance', fr: 'la balance', en: 'the scales', hint: 'lah bah-LAHNS', tip: 'Prices are often per kilo: « six euros le kilo ».', link: { fr: 'Ça fait combien ?', en: 'How much does that come to?' } },
+      { id: 'panier', fr: 'le panier', en: 'the basket', hint: 'luh pan-YAY', link: { fr: "C'est tout, merci.", en: "That's all, thank you." } },
+      { id: 'parasol', fr: 'le parasol', en: 'the sunshade', hint: 'luh pah-rah-SOL', link: { fr: "Il fait beau aujourd'hui !", en: "It's lovely weather today!" } },
+      { id: 'horloge', fr: "l'horloge", g: 'f', en: 'the clock', hint: 'lor-LOZH', tip: 'It shows ten o\'clock: « Il est dix heures ». The h is silent, and « dix heures » runs together: dee-ZUR.', link: { fr: 'Quelle heure est-il ?', en: 'What time is it?' } },
+      { id: 'mairie', fr: 'la mairie', en: 'the town hall', hint: 'lah meh-REE', tip: 'Every French village has one, with the flag outside and « Liberté, Égalité, Fraternité » over the door.', link: { fr: 'Excusez-moi, où est la mairie ?', en: 'Excuse me, where is the town hall?' } },
+      { id: 'affiche', fr: "l'affiche", g: 'f', en: 'the notice', hint: 'lah-FEESH', tip: 'It says: market every Saturday, 8 am to 1 pm, and Wednesday mornings. French uses the 24-hour clock for times like this: 13h = 1 pm.', link: { fr: "Le marché, c'est quel jour ?", en: 'Which day is the market?' } },
+    ],
+
+    // poses: sj browsing | asking | paying | tasting; marchande rest | hello | bag | clock. Default { sj: 'browsing', marchande: 'rest' }
+    dialogue: [
+      { who: 'marchande', fr: 'Bonjour, madame ! Bonjour, monsieur !', en: 'Good morning, madam! Good morning, sir!', pose: { sj: 'browsing', marchande: 'hello' } },
+      { who: 'vous', fr: 'Bonjour, madame ! Elles sont belles, vos fraises !', en: 'Good morning! Your strawberries look lovely!', pose: { sj: 'asking', marchande: 'rest' }, tip: '« Elles » (they) because « les fraises » are feminine.' },
+      { who: 'marchande', fr: 'Ce sont des fraises de la région. Elles sont délicieuses !', en: "They're local strawberries. They're delicious!" },
+      { who: 'vous', fr: "C'est combien, le kilo ?", en: 'How much is a kilo?' },
+      { who: 'marchande', fr: 'Six euros le kilo.', en: 'Six euros a kilo.', tip: '« Le kilo » = per kilo. €6.50 is said « six euros cinquante ».' },
+      { who: 'vous', fr: "Je voudrais un kilo de fraises, s'il vous plaît.", en: "I'd like a kilo of strawberries, please." },
+      { who: 'marchande', fr: 'Voilà ! Et avec ceci ?', en: 'Here you are! Anything else?', pose: { marchande: 'bag' }, tip: 'Every stallholder in France asks « Et avec ceci ? ». If you have everything, answer « C\'est tout, merci. »' },
+      { who: 'vous', fr: 'Un bouquet de pivoines aussi. Ça fait combien ?', en: 'A bunch of peonies too. How much does that come to?' },
+      { who: 'marchande', fr: "Ça fait quinze euros, s'il vous plaît.", en: "That's fifteen euros, please.", pose: { sj: 'paying', marchande: 'rest' } },
+      { who: 'vous', fr: "Voilà. Le marché, c'est tous les samedis ?", en: 'Here you are. Is the market every Saturday?' },
+      { who: 'marchande', fr: 'Oui, tous les samedis, de huit heures à une heure. Et le mercredi matin aussi !', en: 'Yes, every Saturday, from eight o\'clock to one. And Wednesday mornings too!', pose: { marchande: 'clock' }, tip: 'Days of the week have no capital in French: lundi, mardi, mercredi, jeudi, vendredi, samedi, dimanche.' },
+      { who: 'vous', fr: 'Et quelle heure est-il ?', en: 'And what time is it?' },
+      { who: 'marchande', fr: 'Il est dix heures. Vous avez le temps ! Bonne journée !', en: "It's ten o'clock. You have time! Have a lovely day!" },
+      { who: 'vous', fr: 'Merci, bonne journée ! Mmm… elles sont délicieuses !', en: 'Thank you, have a lovely day! Mmm… they\'re delicious!', pose: { sj: 'tasting', marchande: 'hello' } },
+    ],
+
+    cards: [
+      { emoji: '💶', en: 'How much is it?', fr: "C'est combien ?", hint: 'say kohm-BYAN', tip: 'For a total: « Ça fait combien ? » (how much does that come to?).' },
+      { emoji: '🍓', en: "I'd like a kilo of strawberries, please", fr: "Je voudrais un kilo de fraises, s'il vous plaît.", hint: 'zhuh voo-DRAY uhn kee-LOH duh FREZ', tip: '« Je voudrais » (I would like) is much politer than « je veux » (I want).' },
+      { emoji: '➕', en: 'Anything else?', fr: 'Et avec ceci ?', hint: 'ay ah-VEK suh-SEE', tip: "You'll hear it at every stall and in every shop." },
+      { emoji: '✋', en: "That's all, thank you", fr: "C'est tout, merci.", hint: 'say TOO, mair-SEE' },
+      { emoji: '🕙', en: 'What time is it?', fr: 'Quelle heure est-il ?', hint: 'kel UR ay-TEEL', tip: 'The answer: « Il est dix heures » (it\'s ten o\'clock). « Midi » is noon.' },
+      { emoji: '📅', en: 'The market is on Saturdays', fr: "Le marché, c'est le samedi.", hint: 'luh mar-SHAY, say luh sahm-DEE', tip: '« Le samedi » = on Saturdays, every week. « Samedi » alone = this Saturday. The days: lundi, mardi, mercredi, jeudi, vendredi, samedi, dimanche.' },
+      { emoji: '☀️', en: "It's June", fr: 'Nous sommes en juin.', hint: 'noo SUM ahn ZHWAN', tip: 'Months take « en » and no capital: janvier, février, mars, avril, mai, juin, juillet, août, septembre, octobre, novembre, décembre.' },
+      { emoji: '🎂', en: 'My birthday is in August', fr: 'Mon anniversaire est en août.', hint: 'mohn nah-nee-vair-SAIR ay ahn OOT', tip: '« Août » is said « oot » (or just « oo »): the a is silent.' },
+    ],
+
+    quiz: [
+      { type: 'tap', prompt: "Touchez l'horloge.", en: 'Tap the right thing in the picture.', answer: 'horloge', why: "L'horloge. Il est dix heures !" },
+      { type: 'choice', prompt: 'Quelle heure est-il ?', en: 'Look at the clock on the town hall.', options: [
+        { t: 'Il est dix heures.', why: "It's ten o'clock. Both hands say so!" },
+        { t: 'Il est deux heures.', why: 'Two o\'clock: « deux » (duh) and « dix » (deess) are easy to mix up. Look again at the short hand.' },
+        { t: 'Il est dix euros.', why: 'Ten euros! « Heures » (urr) and « euros » (uh-ROH) sound alike, but that\'s a price, not a time.' },
+      ], answer: 'Il est dix heures.' },
+      { type: 'order', prompt: "I'd like a kilo of strawberries, please.", en: 'Tap the words in order.', words: ['Je', 'voudrais', 'un', 'kilo', 'de', 'fraises,', "s'il", 'vous', 'plaît.'], why: 'After an amount it\'s always « de »: un kilo DE fraises, un bouquet DE pivoines.',
+        hints: [
+          { about: ['Je', 'voudrais'], t: 'Start with who wants it: « Je voudrais » (I would like), the polite way to ask for anything.' },
+          { about: ['un', 'kilo', 'de', 'fraises,'], t: 'The amount first, then « de », then the food: « un kilo DE fraises », a kilo OF strawberries. After an amount it\'s always « de », never « des ».' },
+          { about: ["s'il", 'vous', 'plaît.'], t: '« S\'il vous plaît » is one fixed block, always s\'il · vous · plaît, and it goes at the end.' },
+        ] },
+      { type: 'choice', prompt: 'La marchande : « Et avec ceci ? »', en: 'You have everything you need. You say…', options: [
+        { t: "C'est tout, merci.", why: "That's all, thank you. The natural answer." },
+        { t: "C'est combien ?", why: 'How much is it? Useful, but she asked if you want anything else.' },
+        { t: 'Je voudrais des cerises.', why: "I'd like some cherries: the answer if you DO want something else!" },
+      ], answer: "C'est tout, merci." },
+      { type: 'tap', prompt: 'Touchez les cerises.', en: 'Tap the right thing in the picture.', answer: 'cerises', why: 'Les cerises, the first of June.' },
+      { type: 'order', prompt: 'The market is every Saturday.', en: 'Tap the words in order.', words: ['Le', 'marché,', "c'est", 'tous', 'les', 'samedis.'], why: '« Tous les… » = every: tous les samedis, tous les jours (every day).',
+        hints: [
+          { about: ['Le', 'marché,'], t: 'Say what you\'re talking about first, then « c\'est »: « Le marché, c\'est… ». Very common in spoken French.' },
+          { about: ["c'est"], t: '« C\'est » (it is) comes straight after the comma.' },
+          { about: ['tous', 'les', 'samedis.'], t: '« Tous les… » = every: « tous les samedis » (every Saturday). And days take no capital in French.' },
+        ] },
+      { type: 'choice', prompt: 'Which day comes after vendredi?', en: 'Les jours de la semaine.', options: [
+        { t: 'samedi', why: 'Saturday: market day! The week runs lundi, mardi, mercredi, jeudi, vendredi, samedi, dimanche.' },
+        { t: 'dimanche', why: 'Sunday comes after samedi. Vendredi is Friday.' },
+        { t: 'mercredi', why: 'Wednesday, the other market day here. It comes before vendredi.' },
+      ], answer: 'samedi' },
+      { type: 'choice', prompt: 'Your birthday is in August. You say…', options: [
+        { t: 'Mon anniversaire est en août.', why: 'My birthday is in August. Months take « en ».' },
+        { t: 'Mon anniversaire est en avril.', why: '« Avril » is April. August is « août », said « oot ».' },
+        { t: 'Mon anniversaire est le août.', why: 'With a month on its own it\'s « en »: en août, en juin. « Le » is for a date: le 10 août.' },
+      ], answer: 'Mon anniversaire est en août.' },
+      { type: 'order', prompt: 'My birthday is in August.', en: 'Tap the words in order.', words: ['Mon', 'anniversaire', 'est', 'en', 'août.'], why: '« Mon anniversaire » (my birthday) is masculine, so « mon ». Months take « en ».',
+        hints: [
+          { about: ['Mon', 'anniversaire'], t: '« Mon » (my) goes in front: « mon anniversaire ». It\'s « mon », not « ma », because « anniversaire » is masculine.' },
+          { about: ['est', 'en', 'août.'], t: 'Then the verb « est » (is), then « en » + the month: « en août » (in August).' },
+        ] },
+    ],
+
+    sayIt: [
+      { fr: "Bonjour, madame ! C'est combien, le kilo ?", en: 'Good morning! How much is a kilo?', hint: 'bohn-ZHOOR, mah-DAM ! say kohm-BYAN, luh kee-LOH' },
+      { fr: "Je voudrais un kilo de fraises, s'il vous plaît.", en: "I'd like a kilo of strawberries, please.", hint: 'zhuh voo-DRAY uhn kee-LOH duh FREZ' },
+      { fr: "C'est tout, merci. Ça fait combien ?", en: "That's all, thanks. How much does that come to?", hint: 'say TOO, mair-SEE. sah fay kohm-BYAN' },
+      { fr: 'Quelle heure est-il ?', en: 'What time is it?', hint: 'kel UR ay-TEEL' },
+      { fr: "Le marché, c'est quel jour ?", en: 'Which day is the market?', hint: 'luh mar-SHAY, say kel ZHOOR' },
+      { fr: 'Mon anniversaire est en août.', en: 'My birthday is in August.', hint: 'mohn nah-nee-vair-SAIR ay ahn OOT' },
+    ],
+  },
 ];

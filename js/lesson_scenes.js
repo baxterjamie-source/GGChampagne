@@ -24,6 +24,17 @@ const LESSON_ART = {
     w_rose: 'lessons/restaurant/serveur_rose.jfif',
     w_machine: 'lessons/restaurant/serveur_machine.jfif',
   },
+  marche: {
+    bg: 'lessons/marche/marche_bg.jfif',
+    sj_browsing: 'lessons/marche/sj_browsing.jfif',
+    sj_asking: 'lessons/marche/sj_asking.jfif',
+    sj_paying: 'lessons/marche/sj_paying.jfif',
+    sj_tasting: 'lessons/marche/sj_tasting.jfif',
+    m_rest: 'lessons/marche/marchande.jfif',
+    m_hello: 'lessons/marche/marchande_hello.jfif',
+    m_bag: 'lessons/marche/marchande_bag.jfif',
+    m_clock: 'lessons/marche/marchande_clock.jfif',
+  },
 };
 
 /* Touch-ups after keying, per picture: glass shapes (in the picture's pixels) where the green seen THROUGH the glass
@@ -241,6 +252,94 @@ ${glows}
 </g>
 <g class="obj" data-id="bougie">
   ${E(563, 438, 38, 40, 'class="hl"')}${E(563, 438, 26, 30, hit)}
+</g>
+</svg>`;
+  },
+
+  /* Lesson 2: a Saturday-morning market on a village square. The background (1280x800) is exactly 16:10, so it maps
+     onto the viewBox at x0.78125. In the viewBox: the notice board x 43-215 (its blank paper x 92-180, y 307-437,
+     written on here), the town hall x 465-809 with its clock at (615.6, 114.8), the stall x 570-957 under its parasol
+     (y 199-301). S & J stand left of centre; the stallholder stands in front of the left end of her stall, facing them. */
+  marche() {
+    const ART = LESSON_ART.marche, bg = assetUrl('images/' + ART.bg);
+    // S & J standing (864x1152, the same framing in all four poses: content x 64-742 (to 828 when J holds out the
+    // coins), feet at y 1078). Centred on x 285, feet at y 610.
+    const sj = { s: 0.4 }; sj.x = 285 - (64 + 742) / 2 * sj.s; sj.y = 610 - 1078 * sj.s;
+    const sjImg = (key, pose, on) => `<image class="pose${on ? ' on' : ''}" data-pose="${pose}" data-key="${ART[key]}" x="${sj.x.toFixed(1)}" y="${sj.y.toFixed(1)}" width="${(864 * sj.s).toFixed(1)}" height="${(1152 * sj.s).toFixed(1)}"/>`;
+    const P = (ix, iy) => [(sj.x + ix * sj.s).toFixed(1), (sj.y + iy * sj.s).toFixed(1)];
+    const E = (ix, iy, rx, ry, a = '') => { const [cx, cy] = P(ix, iy); return `<ellipse ${a} cx="${cx}" cy="${cy}" rx="${(rx * sj.s).toFixed(1)}" ry="${(ry * sj.s).toFixed(1)}"/>`; };
+    // the stallholder (832x1248, feet at y 1186, body centred on x ~445; all four poses face left, none mirrored),
+    // a little smaller than J, feet on the same line, centred on x 540: her body spans x ~475-605
+    const m = { s: 0.35 }; m.x = 540 - 445 * m.s; m.y = 610 - 1186 * m.s;
+    const mImg = (key, pose, on) => `<image class="pose${on ? ' on' : ''}" data-pose="${pose}" data-key="${ART[key]}" x="${m.x.toFixed(1)}" y="${m.y.toFixed(1)}" width="${(832 * m.s).toFixed(1)}" height="${(1248 * m.s).toFixed(1)}"/>`;
+    // the clock: the painted hands (at one o'clock) are covered with a fresh face and new hands drawn at ten o'clock,
+    // to match « Il est dix heures » in the dialogue
+    const ck = { x: 615.6, y: 114.8 };
+    const hand = (deg, len, w) => { const a = (deg - 90) * Math.PI / 180; return `<line x1="${ck.x}" y1="${ck.y}" x2="${(ck.x + len * Math.cos(a)).toFixed(2)}" y2="${(ck.y + len * Math.sin(a)).toFixed(2)}" stroke="#2B2520" stroke-width="${w}" stroke-linecap="round"/>`; };
+    const clock = `<circle cx="${ck.x}" cy="${ck.y}" r="9.6" fill="#F1EADB"/>${hand(300, 6, 1.5)}${hand(0, 8.8, 1)}<circle cx="${ck.x}" cy="${ck.y}" r="1.1" fill="#2B2520"/>`;
+    // the notice on the board, written here so Gemini never has to (no capitals on days in French)
+    const T = (y, size, txt, extra = '') => `<text x="136" y="${y}" font-size="${size}" text-anchor="middle" ${extra}>${txt}</text>`;
+    const notice = `<g font-family="'Playfair Display', Georgia, serif" fill="#4A2E1C">
+      ${T(330, 14, 'MARCHÉ', 'font-weight="800" letter-spacing="1.5"')}
+      <line x1="104" y1="338" x2="168" y2="338" stroke="#C0563F" stroke-width="1.2"/>
+      ${T(357, 10.5, 'tous les', 'font-style="italic"')}
+      ${T(372, 12.5, 'samedis', 'font-weight="700"')}
+      ${T(392, 12, '8h – 13h', 'font-weight="700" fill="#C0563F"')}
+      ${T(411, 8.5, 'et le mercredi', 'font-style="italic"')}
+      ${T(423, 8.5, 'matin', 'font-style="italic"')}
+    </g>`;
+    const hit = 'fill="#000" fill-opacity="0"';
+
+    return `<svg class="art" viewBox="0 0 1000 625" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A Saturday-morning market on a village square" data-pose='{"sj":"browsing","marchande":"rest"}'>
+<defs>
+  <radialGradient id="hl-gold"><stop offset="0" stop-color="#FFF0C4" stop-opacity=".85"/><stop offset=".6" stop-color="#F2C14E" stop-opacity=".5"/><stop offset="1" stop-color="#F2A900" stop-opacity="0"/></radialGradient>
+  <radialGradient id="hl-green"><stop offset="0" stop-color="#B8F5C0" stop-opacity=".8"/><stop offset="1" stop-color="#7CDB8A" stop-opacity="0"/></radialGradient>
+  <radialGradient id="hl-red"><stop offset="0" stop-color="#FFB3B3" stop-opacity=".8"/><stop offset="1" stop-color="#FF6B6B" stop-opacity="0"/></radialGradient>
+</defs>
+<image href="${bg}" x="0" y="0" width="1000" height="625" preserveAspectRatio="none"/>
+${clock}
+${notice}
+
+<g class="layer-marchande"><g class="waiter">
+  ${mImg('m_rest', 'rest', true)}${mImg('m_hello', 'hello')}${mImg('m_bag', 'bag')}${mImg('m_clock', 'clock')}
+</g></g>
+<g class="layer-sj">
+  ${sjImg('sj_browsing', 'browsing', true)}${sjImg('sj_asking', 'asking')}${sjImg('sj_paying', 'paying')}${sjImg('sj_tasting', 'tasting')}
+</g>
+
+<g class="obj" data-id="mairie">
+  <ellipse class="hl" cx="637" cy="250" rx="185" ry="140"/><rect x="465" y="130" width="344" height="95" ${hit}/><rect x="610" y="225" width="199" height="80" ${hit}/>
+</g>
+<g class="obj" data-id="parasol">
+  <ellipse class="hl" cx="780" cy="250" rx="195" ry="60"/><path d="M600 300 L700 215 L780 200 L880 215 L965 290 L965 305 L600 305 Z" ${hit}/>
+</g>
+<g class="obj" data-id="horloge">
+  <circle class="hl" cx="${ck.x}" cy="${ck.y}" r="34"/><circle cx="${ck.x}" cy="${ck.y}" r="24" ${hit}/>
+</g>
+<g class="obj" data-id="affiche">
+  <ellipse class="hl" cx="136" cy="372" rx="70" ry="88"/><rect x="86" y="298" width="100" height="146" ${hit}/>
+</g>
+<g class="obj" data-id="marchande">
+  <ellipse class="hl" cx="540" cy="400" rx="80" ry="220"/><rect x="478" y="196" width="128" height="414" ${hit}/>
+</g>
+<g class="obj" data-id="fraises">
+  <ellipse class="hl" cx="633" cy="408" rx="40" ry="38"/><rect x="606" y="378" width="56" height="58" ${hit}/>
+</g>
+<g class="obj" data-id="cerises">
+  <ellipse class="hl" cx="702" cy="405" rx="50" ry="45"/><rect x="662" y="365" width="80" height="78" ${hit}/>
+</g>
+<g class="obj" data-id="fromage">
+  <ellipse class="hl" cx="788" cy="440" rx="58" ry="32"/><rect x="744" y="420" width="96" height="44" ${hit}/>
+</g>
+<g class="obj" data-id="fleurs">
+  <ellipse class="hl" cx="744" cy="380" rx="40" ry="48"/><ellipse class="hl" cx="834" cy="390" rx="42" ry="52"/>
+  <rect x="716" y="340" width="57" height="78" ${hit}/><rect x="798" y="345" width="72" height="72" ${hit}/>
+</g>
+<g class="obj" data-id="balance">
+  <ellipse class="hl" cx="891" cy="400" rx="55" ry="68"/><rect x="852" y="342" width="80" height="112" ${hit}/>
+</g>
+<g class="obj" data-id="panier">
+  ${E(148, 760, 120, 110, 'class="hl"')}${E(148, 765, 95, 95, hit)}
 </g>
 </svg>`;
   },
