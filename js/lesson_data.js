@@ -312,3 +312,61 @@ const LESSONS = [
     ],
   },
 ];
+
+/* Bonus words (v1.12, the user's request): everything else in a scene can be tapped too and gets its word and voice,
+   in every step. They never glow, never count towards « Continuer », and the same word can turn up in several scenes
+   on purpose (reinforcement). The tap shapes live in lesson_scenes.js (`.obj.extra` groups, ids = these keys).
+   A lesson's own objects win over these when both share an id. */
+const VOCAB = {
+  // rooms and buildings
+  mur: { fr: 'le mur', en: 'the wall', hint: 'luh MÜR', tip: 'A stone wall: « un mur en pierre ». A low garden wall is « un muret ».' },
+  muret: { fr: 'le muret', en: 'the low wall', hint: 'luh mü-REH', tip: 'A little « mur » (wall). French makes things small with -et or -ette: « une maisonnette » is a little house.' },
+  sol: { fr: 'le sol', en: 'the floor', hint: 'luh SOL', tip: 'A wooden floor is « le parquet ». « Par terre » means on the floor / on the ground.' },
+  plafond: { fr: 'le plafond', en: 'the ceiling', hint: 'luh plah-FOHN', tip: 'The d is silent. « Plat » + « fond »: the flat bottom (of the floor above).' },
+  poutres: { fr: 'les poutres', g: 'f', en: 'the beams (the timber)', hint: 'lay POOTR', tip: 'One beam is « une poutre »; old beams on show are « des poutres apparentes ». Wood itself is « le bois ».' },
+  lampe: { fr: 'la lampe', en: 'the lamp', hint: 'lah LAHMP', tip: 'A hanging lamp is also « une suspension ». The light it gives is « la lumière ».' },
+  etagere: { fr: "l'étagère", g: 'f', en: 'the shelf', hint: 'lay-tah-ZHAIR' },
+  comptoir: { fr: 'le comptoir', en: 'the counter (the bar)', hint: 'luh kohn-TWAHR', tip: 'A coffee at the bar, « au comptoir », is cheaper than at a table.' },
+  plaque: { fr: 'la plaque', en: 'the plaque (the little sign)', hint: 'lah PLAK', tip: 'A big sign or road sign is « un panneau ». On a toilet door look for « Toilettes » or « WC » (said doo-bluh-vay-SAY, or just vay-SAY).' },
+  maison: { fr: 'la maison', en: 'the house', hint: 'lah meh-ZOHN', tip: '« À la maison » means at home.' },
+  toit: { fr: 'le toit', en: 'the roof', hint: 'luh TWAH', tip: 'The t at the end is silent. These roofs are slate: « l\'ardoise », the same word as the chalkboard.' },
+  cheminee: { fr: 'la cheminée', en: 'the chimney', hint: 'lah shuh-mee-NAY', tip: 'Also the fireplace inside.' },
+  fenetre: { fr: 'la fenêtre', en: 'the window', hint: 'lah fuh-NETR', tip: 'The ê is where an old s used to be: think "fenestration".' },
+  volets: { fr: 'les volets', g: 'm', en: 'the shutters', hint: 'lay voh-LAY', tip: 'Closed at night and in the midday heat. One shutter: « un volet ».' },
+  porte: { fr: 'la porte', en: 'the door', hint: 'lah PORT' },
+  lanterne: { fr: 'la lanterne', en: 'the lantern', hint: 'lah lahn-TAIRN' },
+  drapeau: { fr: 'le drapeau', en: 'the flag', hint: 'luh drah-POH', tip: 'Blue, white, red: « bleu, blanc, rouge ». The French flag is « le drapeau tricolore ».' },
+  // outdoors
+  ciel: { fr: 'le ciel', en: 'the sky', hint: 'luh SYEL', link: { fr: 'Quel beau ciel !', en: 'What a beautiful sky!' } },
+  vignes: { fr: 'les vignes', g: 'f', en: 'the vines', hint: 'lay VEEN-yuh', tip: 'One vine: « une vigne ». A whole vineyard is « un vignoble », and the grapes are « le raisin ».' },
+  arbre: { fr: "l'arbre", g: 'm', en: 'the tree', hint: 'LARBR' },
+  paves: { fr: 'les pavés', g: 'm', en: 'the cobbles', hint: 'lay pah-VAY', tip: 'One cobblestone: « un pavé ». A thick steak or slab of cake can be « un pavé » on a menu too.' },
+  geraniums: { fr: 'les géraniums', g: 'm', en: 'the geraniums', hint: 'lay zhay-rah-nee-OM', tip: 'In their « pots de fleurs », flowerpots.' },
+  // at the table
+  verres: { fr: 'les verres', g: 'm', en: 'the glasses (to drink from)', hint: 'lay VAIR', tip: 'One glass: « un verre ». A wine glass: « un verre à vin ». Glasses you wear are « les lunettes ».', link: { fr: 'Un verre de vin rouge, s\'il vous plaît.', en: 'A glass of red wine, please.' } },
+  porteverres: { fr: 'le porte-verres', en: 'the glass rack (the upside-down holder)', hint: 'luh port-VAIR', tip: '« Porte- » + a noun is a holder: « un porte-clés » (key ring), « un porte-monnaie » (coin purse).' },
+  flutes: { fr: 'les flûtes', g: 'f', en: 'the champagne flutes', hint: 'lay FLÜT', link: { fr: 'Santé !', en: 'Cheers!' } },
+  bouteille: { fr: 'la bouteille', en: 'the bottle', hint: 'lah boo-TAY', link: { fr: 'Une bouteille de champagne', en: 'A bottle of champagne' } },
+  cuillere: { fr: 'la cuillère', en: 'the spoon', hint: 'lah kwee-YAIR', tip: 'The fork is « la fourchette », the knife « le couteau ».' },
+  plateau: { fr: 'le plateau', en: 'the tray', hint: 'luh plah-TOH', tip: 'A cheese board is « un plateau de fromages ».' },
+  serviette: { fr: 'la serviette', en: 'the napkin (the cloth)', hint: 'lah sair-VYET', tip: 'Also a towel. Waiters carry one over the arm.' },
+  // the market
+  etal: { fr: "l'étal", g: 'm', en: 'the market stall', hint: 'lay-TAL', tip: 'The table the goods are laid out on. The whole stand is also « le stand ».' },
+  cagette: { fr: 'la cagette', en: 'the wooden crate', hint: 'lah kah-ZHET' },
+  seauzinc: { fr: 'le seau', en: 'the bucket', hint: 'luh SOH', tip: 'Like « le seau à champagne » at the restaurant: the same word, a different bucket.' },
+  // people
+  cheveux: { fr: 'les cheveux', g: 'm', en: 'the hair', hint: 'lay shuh-VUH', tip: 'Always plural. Red hair: « les cheveux roux »; grey hair: « les cheveux gris ».' },
+  lunettes: { fr: 'les lunettes', g: 'f', en: 'the glasses (spectacles)', hint: 'lay lü-NET', tip: 'Always plural, even for one pair. Sunglasses: « les lunettes de soleil ».' },
+  montre: { fr: 'la montre', en: 'the watch', hint: 'lah MOHNTR', link: { fr: 'Quelle heure est-il ?', en: 'What time is it?' } },
+  sac: { fr: 'le sac à main', en: 'the handbag (purse)', hint: 'luh SAK ah MAN', tip: 'Literally "hand bag". A purse for coins is « un porte-monnaie ».' },
+  echarpe: { fr: "l'écharpe", g: 'f', en: 'the scarf', hint: 'lay-SHARP', tip: 'A light silk scarf is also « un foulard ».' },
+  trench: { fr: 'le trench', en: 'the trench coat', hint: 'luh TRENSH', tip: 'Borrowed from English. A coat in general: « le manteau »; a raincoat: « l\'imperméable ».' },
+  robe: { fr: 'la robe', en: 'the dress', hint: 'lah ROB', tip: 'A dressing gown is « une robe de chambre ».' },
+  bottines: { fr: 'les bottines', g: 'f', en: 'the ankle boots', hint: 'lay boh-TEEN', tip: 'Tall boots are « les bottes ».' },
+  pull: { fr: 'le pull', en: 'the jumper (sweater)', hint: 'luh PÜL', tip: 'Short for « le pull-over », borrowed from English.' },
+  pantalon: { fr: 'le pantalon', en: 'the trousers', hint: 'luh pahn-tah-LOHN', tip: 'Singular in French: « un pantalon » is one pair.' },
+  chaussures: { fr: 'les chaussures', g: 'f', en: 'the shoes', hint: 'lay shoh-SÜR', tip: 'One shoe: « une chaussure ». Socks are « les chaussettes ».' },
+  tablier: { fr: 'le tablier', en: 'the apron', hint: 'luh tah-blee-YAY' },
+  noeud: { fr: 'le nœud papillon', en: 'the bow tie', hint: 'luh NUH pah-pee-YOHN', tip: 'Literally a "butterfly knot".' },
+  moustache: { fr: 'la moustache', en: 'the moustache', hint: 'lah moo-STASH', tip: 'Feminine in French, whoever wears it.' },
+};

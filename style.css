@@ -273,6 +273,23 @@ html, body {
 .art .waiter { transform-box: fill-box; transform-origin: 50% 100%; }
 .art:has(.obj.talking) .waiter { animation: nod .5s ease-in-out 3; }   /* the scene's one local character (waiter, stallholder…) */
 @keyframes nod { 50% { transform: rotate(-1.2deg) translateY(-2px); } }
+/* v1.12 bonus words: everything else in the scene answers a tap with its word; a pose-only one is off otherwise */
+.art .obj.off { display: none; }
+.art .obj.peek .hl { opacity: .85; animation: none; }
+.lesson-scene { position: relative; }
+.word-chip {
+  position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); max-width: calc(100% - 16px);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
+  padding: 6px 12px; border-radius: 999px; background: rgba(14,12,10,.82); color: #fff;
+  box-shadow: 0 4px 16px rgba(0,0,0,.45); font-size: .95rem; animation: chipin .25s ease;
+}
+.word-chip .fr { font-family: 'Playfair Display', Georgia, serif; font-weight: 700; }
+.word-chip .fr.m .art-w { color: var(--gold-hi); }
+.word-chip .fr.f .art-w { color: var(--blush); }
+.word-chip .en { opacity: .8; font-size: .85em; }
+.word-chip .say { padding: 2px 6px; }
+@keyframes chipin { from { opacity: 0; transform: translate(-50%, 6px); } }
+.bonus-note { font-size: .8rem; opacity: .75; margin: 6px 0 0; }
 .lesson-scene.popped { animation: popped .6s ease; }
 @keyframes popped { 40% { transform: scale(1.03); box-shadow: 0 0 40px rgba(242,169,0,.6); } }
 

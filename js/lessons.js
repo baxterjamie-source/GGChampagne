@@ -149,7 +149,52 @@ const Lessons = (() => {
   }
   const obj = id => svg.querySelector(`.obj[data-id="${id}"]`);
   function glow(id, on) { const g = obj(id); if (g) g.classList.toggle('glow', on); }
-  function clearMarks() { svg.querySelectorAll('.obj').forEach(g => g.classList.remove('glow', 'talking', 'right', 'wrong')); }
+  function clearMarks() { svg.querySelectorAll('.obj').forEach(g => g.classList.remove('glow', 'talking', 'right', 'wrong', 'peek')); hideChip(); }
+
+  /* ---------- Bonus words (v1.12): every tappable thing under the finger, topmost first ---------- */
+  const isMain = id => L.objects.some(o => o.id === id);
+  const wordFor = id => L.objects.find(o => o.id === id) || (VOCAB[id] ? { id, ...VOCAB[id] } : null);
+  function hitsAt(e) {
+    const out = [];
+    for (const node of document.elementsFromPoint(e.clientX, e.clientY)) {
+      const g = node.closest && node.closest('.obj');
+      if (g && svg.contains(g) && !g.classList.contains('off') && !out.some(h => h.g === g) && wordFor(g.dataset.id)) out.push({ id: g.dataset.id, g });
+    }
+    return out;
+  }
+  // tapping the same spot again goes one layer deeper (the waiter, then his apron; the table, then the spoon…)
+  // (only within 4 s: a tap there later starts from the top again)
+  let cyc = { key: '', order: [], n: 0, t: 0 };
+  function pickHit(hits, first) {
+    if (!hits.length) return null;
+    const key = hits.map(h => h.id).join('|'), t = performance.now();
+    if (first) { cyc = { key, order: [first, ...hits.filter(h => h !== first)], n: 0, t }; return first; }
+    cyc = key === cyc.key && t - cyc.t < 4000 ? { ...cyc, n: (cyc.n + 1) % hits.length, t } : { key, order: hits, n: 0, t };
+    return cyc.order[cyc.n];
+  }
+  function peek(g) {
+    svg.querySelectorAll('.obj.peek').forEach(x => x.classList.remove('peek'));
+    g.classList.add('peek');
+    clearTimeout(peek.t); peek.t = setTimeout(() => g.classList.remove('peek'), 1600);
+  }
+  // outside the scene step: a little label over the picture, with the voice
+  let chip = null;
+  function hideChip() { if (chip) { chip.remove(); chip = null; } clearTimeout(hideChip.t); }
+  function bonusChip(hits) {
+    const h = pickHit(hits);
+    hideChip();
+    if (!h) return;
+    const o = wordFor(h.id);
+    const m = o.fr.match(/^(les|le|la|l'|un|une)\s?(.*)$/i), art = m ? m[1] : '', noun = m ? m[2] : o.fr;
+    const gender = o.g || (/^(la|une)$/i.test(art) ? 'f' : 'm');
+    chip = el('div', 'word-chip', `<span class="fr ${gender}"><span class="art-w">${art}</span> ${noun}</span><span class="en">${o.en}</span>`);
+    chip.append(sayBtn(o.fr));
+    chip.onclick = e => e.stopPropagation();
+    sceneBox.append(chip);
+    peek(h.g);
+    Voice.say(o.fr);
+    hideChip.t = setTimeout(hideChip, 6000);
+  }
 
   /* ---------- Shell ---------- */
   function open(lesson, opts = {}) {
@@ -160,7 +205,10 @@ const Lessons = (() => {
     sceneBox.innerHTML = LESSON_SCENES[L.scene]();
     svg = sceneBox.querySelector('svg');
     LESSON_SCENES.prepare(svg);   // keys the green-screen layers, then shows them
-    svg.addEventListener('click', e => { const g = e.target.closest('.obj'); if (onObj) onObj(g ? g.dataset.id : null, g); });
+    svg.addEventListener('click', e => {
+      const hits = hitsAt(e);
+      if (onObj) onObj(hits); else bonusChip(hits);
+    });
     vb = { ...FULL }; setVB();
     showMusic(); musicBtn.hidden = !L.music;
     Music.play(L.music);
@@ -265,7 +313,26 @@ const Lessons = (() => {
       if (!quiet) Voice.say(o.fr);
       if (seen.size === objs.length) { btn.disabled = false; if (!popped && !quiet) sceneBox.classList.add('popped'); popped = true; }
     };
-    onObj = id => { const i = objs.findIndex(o => o.id === id); if (i < 0) intro(); else showObj(i); };
+    // a glowing thing not yet found always wins the tap; otherwise the topmost thing, one layer deeper on each
+    // tap at the same spot. Bonus words show their card but don't count.
+    const showBonus = h => {
+      const o = wordFor(h.id);
+      panel.innerHTML = '';
+      panel.append(wordCard(o));
+      panel.append(el('p', 'bonus-note', `✨ Mot bonus · <i>a bonus word: tap anything in the picture to learn its name</i>`));
+      const back = el('button', 'link-btn', `← Toute la scène · ${seen.size}/${objs.length}`);
+      back.onclick = intro;
+      panel.append(back);
+      peek(h.g);
+      const b = h.g.getBBox();
+      zoomTo(b.width > 600 || b.height > 380 ? FULL : boxFor(h.g));
+      Voice.say(o.fr);
+    };
+    onObj = hits => {
+      const h = pickHit(hits, hits.find(h => isMain(h.id) && !seen.has(h.id)));
+      if (!h) return intro();
+      if (isMain(h.id)) showObj(objs.findIndex(o => o.id === h.id)); else showBonus(h);
+    };
     stepNav = {
       next: () => { if (cur >= objs.length - 1) return false; showObj(cur + 1); return true; },
       prev: () => { if (cur > 0) { showObj(cur - 1); return true; } if (cur === 0) { intro(); return true; } return false; },
@@ -273,7 +340,7 @@ const Lessons = (() => {
     if (atEnd) { objs.forEach(o => { seen.add(o.id); glow(o.id, false); }); showObj(objs.length - 1, true); } else intro();
   }
   function wordCard(o) {
-    const m = o.fr.match(/^(le|la|les|l'|un|une)\s?(.*)$/i);
+    const m = o.fr.match(/^(les|le|la|l'|un|une)\s?(.*)$/i);
     const art = m ? m[1] : '', noun = m ? m[2] : o.fr, gender = o.g || (/^(la|une)$/i.test(art) ? 'f' : 'm');
     const c = el('div', `word ${gender}`);
     c.innerHTML = `<div class="fr"><span class="art">${art}</span> ${noun}</div><div class="hint">${o.hint}</div><div class="en">${o.en}</div>`;
@@ -409,13 +476,16 @@ const Lessons = (() => {
       let tries = 0, solved = false;
       if (Q.type === 'tap') {
         const note = el('div', 'feedback no'); note.hidden = true; panel.append(note);
-        onObj = (id, g) => {
-          if (!id || solved) return;
+        onObj = hits => {
+          if (!hits.length || solved) return;
           tries++;
-          if (id === Q.answer) { onObj = null; note.remove(); g.classList.add('right'); return solve(Q, L.objects.find(o => o.id === Q.answer).fr); }
+          const ok = hits.find(h => h.id === Q.answer);
+          if (ok) { onObj = null; note.remove(); ok.g.classList.add('right'); return solve(Q, L.objects.find(o => o.id === Q.answer).fr); }
+          // not it: name the lesson word under the finger if there is one, else the bonus word
+          const { id, g } = hits.find(h => isMain(h.id)) || hits[0];
           svg.querySelectorAll('.obj.wrong').forEach(x => x.classList.remove('wrong'));
           g.classList.add('wrong');
-          const o = L.objects.find(o => o.id === id) || { fr: '…', en: '' };
+          const o = wordFor(id) || { fr: '…', en: '' };
           note.hidden = false;
           note.innerHTML = `Pas tout à fait · not quite. That's <b>${nb(o.fr)}</b>, ${o.en}. Try again!`;
           note.prepend(sayBtn(o.fr));

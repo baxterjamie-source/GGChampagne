@@ -66,6 +66,25 @@ function fillGlass(c, raw, shapes) {
   }
 }
 
+/* Bonus words (v1.12): tap shapes for the VOCAB words (lesson_data.js), in viewBox units. Each item is
+   [id, shapes, when?]; a shape is ['r', x, y, w, h], ['e', cx, cy, rx, ry] or ['p', 'M… Z'] (straight lines only).
+   `when` ('sj:meal') keeps it tappable only while that pose shows. Shapes on S & J and the local character are
+   placed for the scene's default pose. Each gets its own soft spotlight, lit for a moment when tapped. */
+function extras(list) {
+  const hit = 'fill="#000" fill-opacity="0"';
+  const hl = (cx, cy, rx, ry) => `<ellipse class="hl" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" rx="${Math.max(14, rx).toFixed(1)}" ry="${Math.max(14, ry).toFixed(1)}"/>`;
+  return list.map(([id, shapes, when]) => {
+    const out = shapes.map(([k, ...a]) => {
+      if (k === 'r') { const [x, y, w, h] = a; return hl(x + w / 2, y + h / 2, w * .62, h * .62) + `<rect x="${x}" y="${y}" width="${w}" height="${h}" ${hit}/>`; }
+      if (k === 'e') { const [cx, cy, rx, ry] = a; return hl(cx, cy, rx * 1.2, ry * 1.2) + `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" ${hit}/>`; }
+      const n = a[0].match(/-?[\d.]+/g).map(Number), xs = n.filter((_, i) => !(i % 2)), ys = n.filter((_, i) => i % 2);
+      const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+      return hl((x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) * .55, (y1 - y0) * .55) + `<path d="${a[0]}" ${hit}/>`;
+    }).join('');
+    return `<g class="obj extra" data-id="${id}"${when ? ` data-when="${when}"` : ''}>${out}</g>`;
+  }).join('\n');
+}
+
 const LESSON_SCENES = {
   _keyed: {},   // path -> blob URL of the keyed picture (kept for the session)
 
@@ -94,6 +113,11 @@ const LESSON_SCENES = {
     for (const layer of Object.keys(p)) {
       svg.querySelectorAll(`.layer-${layer} .pose`).forEach(im => im.classList.toggle('on', im.dataset.pose === p[layer]));
     }
+    // bonus words that belong to one pose (the flutes in a toast…) only answer while it shows
+    svg.querySelectorAll('.obj[data-when]').forEach(g => {
+      const [layer, want] = g.dataset.when.split(':'), on = svg.querySelector(`.layer-${layer} .pose.on`);
+      g.classList.toggle('off', !on || on.dataset.pose !== want);
+    });
   },
 
   terrasse() {
@@ -137,6 +161,18 @@ ${bulbs}
   <image class="pose" data-pose="bow" data-key="${ART.w_bow}" x="${wb.x}" y="${wb.y}" width="${832 * wb.s}" height="${1248 * wb.s}"/>
 </g></g>
 
+${extras([
+  ['ciel', [['r', 0, 104, 1000, 160]]],
+  ['vignes', [['r', 0, 262, 1000, 140]]],
+  ['muret', [['r', 0, 400, 1000, 84]]],
+  ['maison', [['r', 385, 300, 145, 45]]],
+  ['geraniums', [['e', 115, 378, 42, 30], ['e', 345, 378, 26, 32]]],
+  ['trench', [['r', 400, 345, 120, 150]]],
+  ['robe', [['r', 440, 450, 85, 80]]],
+  ['pull', [['r', 585, 325, 120, 120]]],
+  ['pantalon', [['r', 570, 440, 135, 110]]],
+])}
+
 <g class="obj" data-id="terrasse">
   <ellipse class="hl" cx="170" cy="560" rx="190" ry="70"/><rect x="0" y="484" width="1000" height="141" ${hit}/>
 </g>
@@ -172,6 +208,23 @@ ${bulbs}
   ${E(510, 370, 52, 100, 'class="hl"')}${E(650, 370, 52, 100, 'class="hl"')}
   ${E(512, 370, 34, 88, hit)}${E(648, 370, 34, 88, hit)}
 </g>
+
+${extras([
+  ['cheveux', [['e', 455, 292, 48, 45]]],
+  ['cheveux', [['e', 635, 272, 40, 20]]],
+  ['echarpe', [['e', 465, 362, 20, 30]]],
+  ['bottines', [['r', 455, 545, 105, 52]]],
+  ['lunettes', [['r', 598, 282, 64, 24]]],
+  ['montre', [['e', 625, 413, 11, 11]]],
+  ['chaussures', [['r', 560, 548, 85, 52]]],
+  ['tablier', [['r', 800, 372, 95, 140]]],
+  ['serviette', [['r', 783, 330, 42, 75]]],
+  ['noeud', [['e', 858, 257, 16, 9]]],
+  ['moustache', [['e', 862, 221, 17, 7]]],
+  ['chaussures', [['r', 805, 560, 105, 45]]],
+  ['plateau', [['e', 943, 249, 46, 11]], 'serveur:tray'],
+  ['flutes', [['e', 940, 220, 27, 30]], 'serveur:tray'],
+])}
 </svg>`;
   },
 
@@ -219,6 +272,25 @@ ${bulbs}
 </g></g>
 ${glows}
 
+${extras([
+  ['plafond', [['r', 0, 0, 1000, 82]]],
+  ['poutres', [['p', 'M0 0 L40 0 L165 58 L165 80 L140 80 L0 25 Z'], ['p', 'M170 0 L215 0 L285 58 L285 80 L250 80 L170 22 Z'],
+    ['p', 'M325 0 L365 0 L400 58 L400 80 L350 80 Z'], ['p', 'M480 0 L520 0 L520 80 L485 80 Z'], ['p', 'M640 0 L680 0 L635 80 L600 80 L600 58 Z'],
+    ['p', 'M760 0 L800 0 L760 80 L715 80 L715 58 Z'], ['p', 'M890 0 L935 0 L880 80 L830 80 L830 58 Z'], ['p', 'M975 0 L1000 0 L1000 40 L975 80 L940 80 L940 58 Z']]],
+  ['mur', [['r', 0, 82, 1000, 390]]],
+  ['sol', [['r', 0, 472, 1000, 153]]],
+  ['comptoir', [['p', 'M0 325 L225 325 L225 345 L210 600 L0 625 Z']]],
+  ['etagere', [['r', 105, 246, 105, 34]]],
+  ['lampe', [['e', 149, 150, 36, 26], ['r', 143, 20, 12, 105]]],
+  ['lampe', [['e', 645, 113, 36, 26], ['r', 639, 20, 12, 72]]],
+  ['porteverres', [['r', 0, 40, 100, 58]]],
+  ['verres', [['r', 0, 95, 88, 72]]],
+  ['trench', [['r', 250, 345, 65, 150]]],
+  ['robe', [['r', 285, 470, 90, 75]]],
+  ['pull', [['r', 450, 335, 115, 105]]],
+  ['pantalon', [['r', 425, 470, 130, 90]]],
+])}
+
 <g class="obj" data-id="serveur">
   <ellipse class="hl" cx="702" cy="380" rx="90" ry="235"/><rect x="615" y="150" width="175" height="455" ${hit}/>
 </g>
@@ -253,6 +325,28 @@ ${glows}
 <g class="obj" data-id="bougie">
   ${E(563, 438, 38, 40, 'class="hl"')}${E(563, 438, 26, 30, hit)}
 </g>
+
+${extras([
+  ['plaque', [['e', 817, 234, 22, 11]]],
+  ['cheveux', [['e', 300, 312, 42, 52]]],
+  ['cheveux', [['e', 505, 278, 30, 14]]],
+  ['echarpe', [['e', 310, 355, 20, 28]]],
+  ['sac', [['r', 224, 440, 46, 52]]],
+  ['bottines', [['r', 315, 535, 95, 65]]],
+  ['lunettes', [['r', 474, 295, 46, 20]]],
+  ['montre', [['e', 511, 435, 10, 10]]],
+  ['chaussures', [['r', 410, 555, 80, 45]]],
+  ['cuillere', [['e', 330, 439, 22, 7]]],
+  ['verres', [['e', 368, 437, 10, 13], ['e', 423, 433, 10, 12]]],
+  ['flutes', [['e', 385, 365, 15, 35], ['e', 415, 365, 15, 35]], 'sj:meal'],
+  ['bouteille', [['e', 467, 440, 13, 25]], 'sj:meal'],
+  ['tablier', [['r', 668, 380, 100, 140]]],
+  ['noeud', [['e', 675, 258, 15, 8]]],
+  ['moustache', [['e', 655, 241, 15, 6]]],
+  ['plateau', [['e', 752, 355, 38, 50]], 'serveur:bow'],
+  ['serviette', [['r', 626, 322, 34, 72]], 'serveur:bow'],
+  ['chaussures', [['r', 650, 560, 90, 45]]],
+])}
 </svg>`;
   },
 
@@ -307,6 +401,26 @@ ${notice}
   ${sjImg('sj_browsing', 'browsing', true)}${sjImg('sj_asking', 'asking')}${sjImg('sj_paying', 'paying')}${sjImg('sj_tasting', 'tasting')}
 </g>
 
+${extras([
+  ['ciel', [['r', 0, 0, 1000, 150]]],
+  ['maison', [['p', 'M0 50 L240 85 L310 185 L470 200 L470 400 L0 400 Z']]],
+  ['maison', [['r', 855, 0, 145, 520]]],
+  ['vignes', [['r', 270, 118, 200, 82]]],
+  ['toit', [['p', 'M0 52 L245 88 L312 192 L0 168 Z']]],
+  ['cheminee', [['r', 80, 42, 45, 58], ['r', 230, 88, 32, 45], ['r', 502, 102, 28, 40], ['r', 755, 77, 26, 68]]],
+  ['fenetre', [['r', 5, 170, 45, 68], ['r', 95, 185, 32, 60], ['r', 190, 200, 38, 45], ['r', 52, 105, 35, 45], ['r', 222, 125, 25, 35], ['r', 950, 45, 50, 120], ['r', 950, 250, 50, 150]]],
+  ['volets', [['r', 40, 175, 18, 62], ['r', 78, 185, 16, 62], ['r', 128, 188, 14, 58], ['r', 180, 200, 12, 48], ['r', 230, 203, 12, 46], ['r', 910, 50, 32, 122]]],
+  ['porte', [['r', 0, 295, 35, 105]]],
+  ['arbre', [['r', 790, 120, 70, 190]]],
+  ['paves', [['r', 0, 400, 1000, 225]]],
+  ['etal', [['p', 'M590 432 L960 432 L960 600 L590 600 Z']]],
+  ['cagette', [['r', 900, 515, 100, 85]]],
+  ['trench', [['r', 185, 320, 120, 165]]],
+  ['robe', [['r', 205, 430, 95, 115]]],
+  ['pull', [['r', 290, 295, 125, 140]]],
+  ['pantalon', [['r', 315, 435, 85, 135]]],
+])}
+
 <g class="obj" data-id="mairie">
   <ellipse class="hl" cx="637" cy="250" rx="185" ry="140"/><rect x="465" y="130" width="344" height="95" ${hit}/><rect x="610" y="225" width="199" height="80" ${hit}/>
 </g>
@@ -341,6 +455,23 @@ ${notice}
 <g class="obj" data-id="panier">
   ${E(148, 760, 120, 110, 'class="hl"')}${E(148, 765, 95, 95, hit)}
 </g>
+
+${extras([
+  ['drapeau', [['e', 585, 242, 15, 26]]],
+  ['lanterne', [['e', 407, 270, 10, 14], ['e', 632, 312, 8, 12]]],
+  ['seauzinc', [['e', 752, 410, 12, 12], ['e', 832, 414, 18, 15]]],
+  ['cheveux', [['e', 245, 280, 45, 48]]],
+  ['cheveux', [['e', 352, 230, 36, 18]]],
+  ['cheveux', [['e', 537, 250, 36, 24]]],
+  ['echarpe', [['e', 255, 345, 20, 35]]],
+  ['sac', [['r', 195, 385, 42, 70]]],
+  ['bottines', [['r', 220, 550, 60, 60]]],
+  ['lunettes', [['r', 323, 250, 62, 20]]],
+  ['montre', [['e', 398, 426, 10, 10]]],
+  ['chaussures', [['r', 310, 570, 90, 45]]],
+  ['tablier', [['r', 487, 315, 98, 185]]],
+  ['chaussures', [['r', 490, 570, 90, 42]]],
+])}
 </svg>`;
   },
 };
