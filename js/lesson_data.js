@@ -82,34 +82,43 @@ const LESSONS = [
   },
 
   {
-    week: 1, unlock: '2027-01-01T08:00:00', scene: 'terrasse', music: 'accordion',
+    week: 1, unlock: '2027-01-01T08:00:00', scene: 'restaurant', music: 'accordion',
     titleFr: 'Au restaurant', titleEn: 'Menus, the bill and the bathroom',
-    dialogueView: { x: 320, y: 170, w: 680, h: 425 },
+    dialogueView: { x: 200, y: 125, w: 800, h: 500 },
 
-    // the same terrace: familiar things, each linked to a new restaurant phrase
+    // a cosy village restaurant at night: each thing linked to a restaurant phrase. The scene shows the meal
+    // (the menus, the bill and the card machine appear in the dialogue instead)
     objects: [
-      { id: 'serveur', fr: 'le serveur', en: 'the waiter', hint: 'luh sair-VUR', link: { fr: "La carte, s'il vous plaît.", en: 'The menu, please.' } },
-      { id: 'bouteille', fr: 'la bouteille', en: 'the bottle', hint: 'lah boo-TAY', link: { fr: 'Pourriez-vous nous apporter la carte des vins ?', en: 'Could you bring us the wine list?' } },
-      { id: 'verre', fr: 'la flûte', en: 'the champagne flute', hint: 'lah FLÜT', link: { fr: 'Quel champagne rosé nous conseillez-vous ?', en: 'Which rosé champagne do you recommend?' } },
-      { id: 'table', fr: 'la table', en: 'the table', hint: 'lah TAH-bl', link: { fr: 'On paie à la caisse ou à table ?', en: 'Do we pay at the till or at the table?' } },
-      { id: 'terrasse', fr: 'la terrasse', en: 'the terrace', hint: 'lah teh-RASS', link: { fr: "On peut s'asseoir en terrasse ?", en: 'Can we sit outside?' } },
+      { id: 'serveur', fr: 'le serveur', en: 'the waiter', hint: 'luh sair-VUR', tip: '« La carte » is the menu, the list of dishes. « Le menu » is a fixed-price set meal.', link: { fr: "Pourriez-vous nous apporter la carte, s'il vous plaît ?", en: 'Could you bring us the menu, please?' } },
+      { id: 'casier', fr: 'le casier à vin', en: 'the wine rack', hint: 'luh kah-ZYAY ah VAN', link: { fr: 'Pourriez-vous nous apporter la carte des vins ?', en: 'Could you bring us the wine list?' } },
+      { id: 'seau', fr: 'le seau à champagne', en: 'the champagne bucket', hint: 'luh SOH ah shahm-PAN-yuh', tip: '« Seau » sounds exactly like « sot » (silly) and « saut » (a jump). The context tells them apart.', link: { fr: 'Quel champagne rosé nous conseillez-vous ?', en: 'Which rosé champagne do you recommend?' } },
+      { id: 'plat', fr: 'le plat', en: 'the dish', hint: 'luh PLAH', tip: '« Le plat principal » is the main course; « le plat du jour » is today\'s special. Tonight: la potée champenoise, the region\'s hearty stew.', link: { fr: 'Quel est votre plat préféré ici ?', en: 'What is your favourite dish here?' } },
+      { id: 'ardoise', fr: "l'ardoise", g: 'f', en: 'the chalkboard', hint: 'lar-DWAHZ', tip: 'Bistros chalk the day\'s specials on it. Ask the waiter what he would pick.', link: { fr: "Qu'est-ce que vous nous conseillez ?", en: 'What do you recommend?' } },
+      { id: 'carafe', fr: "la carafe d'eau", en: 'the jug of water', hint: 'lah kah-RAHF DOH', tip: 'Tap water is free by law. Ask for « une carafe d\'eau », not « une bouteille d\'eau ».', link: { fr: "Une carafe d'eau, s'il vous plaît.", en: 'A jug of tap water, please.' } },
+      { id: 'bougie', fr: 'la bougie', en: 'the candle', hint: 'lah boo-ZHEE', tip: 'A candlelit dinner is « un dîner aux chandelles ».', link: { fr: 'Une table pour deux, s\'il vous plaît.', en: 'A table for two, please.' } },
+      { id: 'porte', fr: 'la porte des toilettes', en: 'the door to the toilets', hint: 'lah PORT day twah-LET', link: { fr: "Où sont les toilettes, s'il vous plaît ?", en: 'Where are the toilets, please?' } },
+      { id: 'caisse', fr: 'la caisse', en: 'the till', hint: 'lah KESS', link: { fr: 'On paie à la caisse ou à table ?', en: 'Do we pay at the till or at the table?' } },
+      { id: 'table', fr: 'la table', en: 'the table', hint: 'lah TAH-bl', link: { fr: "Tout était délicieux ! L'addition, s'il vous plaît.", en: 'Everything was delicious! The bill, please.' } },
       { id: 'chaise', fr: 'la chaise', en: 'the chair', hint: 'lah SHEZ', link: { fr: 'Pardon, cette chaise est libre ?', en: 'Excuse me, is this chair free?' } },
     ],
 
+    // poses: sj menus | asking | meal | bill; serveur bow | rose | machine. The scene's default is { sj: 'meal', serveur: 'bow' }
     dialogue: [
-      { who: 'serveur', fr: 'Bonsoir ! Vous avez choisi ?', en: 'Good evening! Have you chosen?', pose: { sj: 'table', serveur: 'tray' } },
-      { who: 'vous', fr: "Pas encore. Pourriez-vous nous apporter la carte, s'il vous plaît ?", en: 'Not yet. Could you bring us the menu, please?', pose: { sj: 'ordering' }, tip: '« La carte » is the menu, the list of dishes. « Le menu » is a fixed-price set meal.' },
-      { who: 'serveur', fr: 'Bien sûr. Et la carte des vins ?', en: 'Of course. And the wine list?' },
-      { who: 'vous', fr: 'Oui, merci. Quel champagne rosé nous conseillez-vous ?', en: 'Yes, thank you. Which rosé champagne do you recommend?' },
-      { who: 'serveur', fr: 'Le rosé de Veuve Clicquot, madame. Il est délicieux.', en: 'The Veuve Clicquot rosé, madam. It\'s delicious.' },
-      { who: 'vous', fr: 'Parfait ! Et quel est votre plat préféré ici ?', en: 'Perfect! And what is your favourite dish here?', pose: { sj: 'cheers' } },
+      { who: 'serveur', fr: 'Bonsoir ! Vous avez choisi ?', en: 'Good evening! Have you chosen?', pose: { sj: 'menus', serveur: 'bow' } },
+      { who: 'vous', fr: "Pas encore. Pourriez-vous nous apporter la carte des vins, s'il vous plaît ?", en: 'Not yet. Could you bring us the wine list, please?', pose: { sj: 'asking' }, tip: '« La carte des vins » is the wine list. « La carte » alone is the menu of dishes, and « le menu » is a fixed-price set meal.' },
+      { who: 'serveur', fr: 'Bien sûr, la voici.', en: 'Of course, here it is.' },
+      { who: 'vous', fr: 'Merci. Quel champagne rosé nous conseillez-vous ?', en: 'Thank you. Which rosé champagne do you recommend?' },
+      { who: 'serveur', fr: 'Le rosé de Veuve Clicquot, madame. Il est délicieux.', en: 'The Veuve Clicquot rosé, madam. It\'s delicious.', pose: { serveur: 'rose' } },
+      { who: 'vous', fr: 'Parfait ! Et quel est votre plat préféré ici ?', en: 'Perfect! And what is your favourite dish here?' },
       { who: 'serveur', fr: 'La potée champenoise, sans hésiter !', en: 'The potée champenoise, without a doubt!', tip: 'La potée champenoise: the region\'s hearty stew of pork, sausage, cabbage and vegetables.' },
-      { who: 'vous', fr: 'Excusez-moi, où sont les toilettes ?', en: 'Excuse me, where are the toilets?', pose: { sj: 'table' } },
-      { who: 'serveur', fr: 'Au fond, à droite.', en: 'At the back, on the right.' },
+      { who: 'vous', fr: "Alors deux potées, s'il vous plaît !", en: 'Two potées then, please!' },
+      { who: 'serveur', fr: 'Voilà. Bon appétit !', en: 'Here you are. Enjoy your meal!', pose: { sj: 'meal', serveur: 'bow' }, tip: 'Reply with a simple « Merci ! ».' },
+      { who: 'vous', fr: 'Excusez-moi, où sont les toilettes ?', en: 'Excuse me, where are the toilets?' },
+      { who: 'serveur', fr: 'Au fond, à droite.', en: 'At the back, on the right.', tip: 'Look at the picture: the door at the back, on the right!' },
       { who: 'vous', fr: "Tout était délicieux ! L'addition, s'il vous plaît.", en: 'Everything was delicious! The bill, please.' },
-      { who: 'serveur', fr: 'Merci ! Vous payez par carte ?', en: 'Thank you! Are you paying by card?' },
+      { who: 'serveur', fr: 'Merci ! Vous payez par carte ?', en: 'Thank you! Are you paying by card?', pose: { sj: 'bill' } },
       { who: 'vous', fr: 'Oui, par carte. Vous pouvez apporter la machine ?', en: 'Yes, by card. Can you bring the card machine?', tip: 'In France the waiter brings the card machine to the table. It\'s called « la machine » or « le terminal ».' },
-      { who: 'serveur', fr: "Je vous l'apporte tout de suite.", en: "I'll bring it right away.", pose: { serveur: 'bow' } },
+      { who: 'serveur', fr: "Je vous l'apporte tout de suite.", en: "I'll bring it right away.", pose: { serveur: 'machine' } },
     ],
 
     cards: [
@@ -133,8 +142,10 @@ const LESSONS = [
         { t: 'Le menu', why: '« Le menu » is a fixed-price set meal (starter, main, dessert). Lovely if you want it, but it isn\'t the whole list.' },
         { t: "L'addition", why: '« L\'addition » is the bill, for the end of the meal.' },
       ], answer: 'La carte' },
-      { type: 'tap', prompt: 'Touchez la terrasse.', en: 'Tap the right thing in the picture.', answer: 'terrasse', why: 'La terrasse. « On peut s\'asseoir en terrasse ? » Can we sit outside?' },
+      { type: 'tap', prompt: 'Touchez le seau à champagne.', en: 'Tap the right thing in the picture.', answer: 'seau', why: 'Le seau à champagne, keeping the rosé cold.' },
       { type: 'order', prompt: 'Where are the toilets, please?', en: 'Tap the words in order.', words: ['Où', 'sont', 'les', 'toilettes,', "s'il", 'vous', 'plaît ?'], why: '« Les toilettes » is plural, so it\'s « où SONT », not « où est ».' },
+      { type: 'tap', prompt: 'Au fond, à droite. Touchez la porte des toilettes.', en: 'At the back, on the right. Tap the right thing in the picture.', answer: 'porte', why: 'La porte des toilettes: at the back, on the right, just as the waiter said.' },
+      { type: 'tap', prompt: 'Touchez la caisse.', en: 'Tap the right thing in the picture.', answer: 'caisse', why: 'La caisse: the till. « On paie à la caisse ou à table ? »' },
       { type: 'choice', prompt: 'You would like free tap water. You say…', options: [
         { t: "Une carafe d'eau, s'il vous plaît.", why: 'A jug of tap water: free in every French restaurant.' },
         { t: "Une bouteille d'eau, s'il vous plaît.", why: 'That gets you a bottle of mineral water, and it goes on the bill. Fine if you want sparkling (« de l\'eau gazeuse »).' },
