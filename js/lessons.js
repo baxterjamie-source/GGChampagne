@@ -583,7 +583,12 @@ const Lessons = (() => {
     const head = el('p', 'lead', 'À dire 🗣️ ');
     const help = el('button', 'help-btn', '?'); help.setAttribute('aria-label', 'Aide · how this works'); help.title = 'Aide · how this works';
     const helpBox = el('div', 'help-box', SAYIT_HELP); helpBox.hidden = true;
-    help.onclick = () => { helpBox.hidden = !helpBox.hidden; help.classList.toggle('on', !helpBox.hidden); };
+    const showHelp = on => { helpBox.hidden = !on; help.classList.toggle('on', on); };
+    help.onclick = () => showHelp(helpBox.hidden);
+    // v1.10: a ✕ at the top of the box closes it too
+    const x = el('button', 'help-close', '✕'); x.setAttribute('aria-label', 'Fermer · close'); x.title = 'Fermer · close';
+    x.onclick = () => showHelp(false);
+    helpBox.prepend(x);
     head.append(help);
     panel.append(head, el('p', 'en', 'To say aloud, when you can: listen, say it, record yourself if you like, then tick it off. Tap <b>?</b> for what each button does.'), helpBox);
     if (SFX.muted) panel.append(el('p', 'en small', '🔇 Sound is off in this test link (?mute), so nothing will play.'));

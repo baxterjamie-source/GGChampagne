@@ -395,6 +395,10 @@ html, body {
 .help-btn { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--gold); background: none; color: var(--gold-hi);
   font: 700 .9rem var(--sans); cursor: pointer; vertical-align: middle; margin-left: 4px; }
 .help-btn.on { background: var(--gold); color: #121212; }
+.help-box { position: relative; padding-right: 40px !important; }
+.help-close { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border-radius: 50%; border: 0;
+  background: rgba(251,245,233,.12); color: var(--cream); font: 700 .9rem var(--sans); cursor: pointer; }
+.help-close:hover { background: rgba(251,245,233,.22); }
 .help-box { margin: 8px 0 12px; padding: 12px 14px; border-radius: 14px; background: rgba(242,169,0,.1); border: 1px solid rgba(242,193,78,.45);
   font-size: .88rem; line-height: 1.4; animation: rise-in .25s ease; }
 .help-box p { margin: 0 0 8px; }
