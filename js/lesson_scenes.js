@@ -111,8 +111,7 @@ const LESSON_SCENES = {
     return `<svg class="art" viewBox="0 0 1000 625" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A café terrace among the vines at sunset">
 <defs>
   <radialGradient id="t-bulb"><stop offset="0" stop-color="#FFF4C8" stop-opacity=".9"/><stop offset="1" stop-color="#FFD873" stop-opacity="0"/></radialGradient>
-  <radialGradient id="hl-gold"><stop offset="0" stop-color="#FFE9A8" stop-opacity=".75"/><stop offset=".6" stop-color="#F2C14E" stop-opacity=".35"/><stop offset="1" stop-color="#F2A900" stop-opacity="0"/></radialGradient>
-  <radialGradient id="hl-glow"><stop offset="0" stop-color="#9CFFB4" stop-opacity=".12"/><stop offset=".6" stop-color="#5CF08A" stop-opacity=".25"/><stop offset=".85" stop-color="#3CE070" stop-opacity=".95"/><stop offset="1" stop-color="#3CE070" stop-opacity="0"/></radialGradient>
+  <radialGradient id="hl-gold"><stop offset="0" stop-color="#FFF0C4" stop-opacity=".85"/><stop offset=".6" stop-color="#F2C14E" stop-opacity=".5"/><stop offset="1" stop-color="#F2A900" stop-opacity="0"/></radialGradient>
   <radialGradient id="hl-green"><stop offset="0" stop-color="#B8F5C0" stop-opacity=".8"/><stop offset="1" stop-color="#7CDB8A" stop-opacity="0"/></radialGradient>
   <radialGradient id="hl-red"><stop offset="0" stop-color="#FFB3B3" stop-opacity=".8"/><stop offset="1" stop-color="#FF6B6B" stop-opacity="0"/></radialGradient>
 </defs>
@@ -195,8 +194,7 @@ ${bulbs}
     return `<svg class="art" viewBox="0 0 1000 625" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A cosy village restaurant at night" data-pose='{"sj":"meal","serveur":"bow"}'>
 <defs>
   <radialGradient id="r-lamp"><stop offset="0" stop-color="#FFF4C8" stop-opacity=".8"/><stop offset="1" stop-color="#FFD873" stop-opacity="0"/></radialGradient>
-  <radialGradient id="hl-gold"><stop offset="0" stop-color="#FFE9A8" stop-opacity=".75"/><stop offset=".6" stop-color="#F2C14E" stop-opacity=".35"/><stop offset="1" stop-color="#F2A900" stop-opacity="0"/></radialGradient>
-  <radialGradient id="hl-glow"><stop offset="0" stop-color="#9CFFB4" stop-opacity=".12"/><stop offset=".6" stop-color="#5CF08A" stop-opacity=".25"/><stop offset=".85" stop-color="#3CE070" stop-opacity=".95"/><stop offset="1" stop-color="#3CE070" stop-opacity="0"/></radialGradient>
+  <radialGradient id="hl-gold"><stop offset="0" stop-color="#FFF0C4" stop-opacity=".85"/><stop offset=".6" stop-color="#F2C14E" stop-opacity=".5"/><stop offset="1" stop-color="#F2A900" stop-opacity="0"/></radialGradient>
   <radialGradient id="hl-green"><stop offset="0" stop-color="#B8F5C0" stop-opacity=".8"/><stop offset="1" stop-color="#7CDB8A" stop-opacity="0"/></radialGradient>
   <radialGradient id="hl-red"><stop offset="0" stop-color="#FFB3B3" stop-opacity=".8"/><stop offset="1" stop-color="#FF6B6B" stop-opacity="0"/></radialGradient>
 </defs>

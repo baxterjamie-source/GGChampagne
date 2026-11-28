@@ -261,10 +261,11 @@ html, body {
 /* painted scenes (svg.art): the pictures sit outside the .obj groups; each .obj lights a soft spotlight (.hl) */
 .art .obj.glow, .art .obj.right, .art .obj.wrong { animation: none; filter: none; }
 .art .hl { fill: url(#hl-gold); opacity: 0; mix-blend-mode: screen; pointer-events: none; transition: opacity .3s; }
-/* v1.08: the things still to tap glow GREEN (a bright ring), never fading out completely, so the ones she missed
-   are easy to spot; the gold was too subtle on the warm pictures. Tapped ones stop glowing. */
-.art .obj.glow .hl { fill: url(#hl-glow); animation: hlpulse 1.6s ease-in-out infinite; }
-@keyframes hlpulse { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
+/* v1.09: the things still to tap glow gold, and the glow gets stronger as fewer are left (lessons.js sets
+   --glow-lo / --glow-hi on the svg), so the last few she missed stand out. Tapped ones stop glowing.
+   (v1.08's green ring was rejected.) */
+.art .obj.glow .hl { animation: hlpulse 1.6s ease-in-out infinite; }
+@keyframes hlpulse { 0%,100% { opacity: var(--glow-lo, .15); } 50% { opacity: var(--glow-hi, 1); } }
 .art .obj.right .hl { fill: url(#hl-green); opacity: 1; animation: none; }
 .art .obj.wrong .hl { fill: url(#hl-red); opacity: 1; animation: none; }
 .art .pose { opacity: 0; transition: opacity .6s ease; pointer-events: none; }
@@ -366,6 +367,9 @@ html, body {
 .lesson-foot .btn small { font-size: .72em; opacity: .75; font-weight: 400; }
 .tile.right { border-color: #7CDB8A; background: rgba(124,219,138,.18); cursor: default; }
 .tile.wrong { border-color: #FF6B6B; background: rgba(255,107,107,.15); }
+.grammar-hints:empty { display: none; }
+.grammar-hint { margin: 8px 0 0; padding: 9px 12px; border-radius: 12px; background: rgba(242,193,78,.12); border-left: 3px solid var(--gold);
+  font-size: .9rem; line-height: 1.4; animation: rise-in .25s ease; }
 .feedback { margin-top: 12px; padding: 12px 14px; border-radius: 14px; animation: rise-in .3s ease; }
 .feedback.ok { background: rgba(124,219,138,.14); }
 .feedback.no { background: rgba(232,154,154,.18); }

@@ -239,7 +239,14 @@ const Lessons = (() => {
     zoomTo(FULL);
     const seen = new Set(), objs = L.objects;
     let cur = -1, popped = false;   // cur: the thing shown, -1 = the whole scene
+    // the yellow glow strengthens as fewer things are left, so the last ones she missed stand out (v1.09)
+    const glowLevel = () => {
+      const f = seen.size / Math.max(1, objs.length - 1);   // 0 at the start → 1 with one thing left
+      svg.style.setProperty('--glow-lo', (0.15 + 0.6 * Math.min(1, f)).toFixed(2));
+      svg.style.setProperty('--glow-hi', (0.75 + 0.25 * Math.min(1, f)).toFixed(2));
+    };
     objs.forEach(o => glow(o.id, true));
+    glowLevel();
     const btn = next('Continuer ›', undefined, false);
     const intro = () => {
       cur = -1; zoomTo(FULL); panel.innerHTML = '';
@@ -248,7 +255,7 @@ const Lessons = (() => {
     const showObj = (i, quiet) => {
       cur = i;
       const o = objs[i], g = obj(o.id);
-      seen.add(o.id);
+      seen.add(o.id); glowLevel();
       if (g) { g.classList.remove('glow'); g.classList.add('seen'); zoomTo(boxFor(g)); }
       panel.innerHTML = '';
       panel.append(wordCard(o));
@@ -335,6 +342,8 @@ const Lessons = (() => {
       flip = quiet => {
         if (card.classList.contains('flipped')) return;
         card.classList.add('flipped'); if (quiet !== true) Voice.say(c.fr);
+        if (card.dataset.answered) return;   // flipped back to the English and over again: the buttons are already there
+        card.dataset.answered = '1';
         // "I missed it" sends the card to the back of the pile, and it keeps coming back until she gets it;
         // "I got it" moves it up a Leitner box (only if it was right first time) and takes it off the pile
         const miss = el('button', 'btn ghost', '✗ Raté ! · <small>I missed it</small>'), got = el('button', 'btn', '✓ Je l’ai ! · <small>I got it!</small>');
@@ -342,8 +351,10 @@ const Lessons = (() => {
         got.onclick = () => { if (!queue[0].missed) { box[id] = Math.min(5, (box[id] || 1) + 1); db.set('box', box); } hist.push(queue.shift()); show(); };
         foot.append(miss, got);
       };
-      unflip = () => { card.classList.remove('flipped'); foot.innerHTML = ''; };
-      card.onclick = flip;
+      unflip = () => { card.classList.remove('flipped'); foot.innerHTML = ''; delete card.dataset.answered; };
+      // v1.09: tapping a flipped card turns it back to the English (and again to the French) as often as she likes;
+      // the Raté / Je l'ai buttons stay put
+      card.onclick = () => { if (card.classList.contains('flipped')) card.classList.remove('flipped'); else flip(); };
     };
     stepNav = {
       next: () => {
@@ -454,16 +465,38 @@ const Lessons = (() => {
           pool.append(b);
         });
         panel.append(ans, pool);
+        // v1.09: after a wrong try, a grammar hint about the words that are out of place (Q.hints: { about: [words], t }),
+        // one new hint per try, the most relevant first; the hints so far stay listed
+        const key = w => w.replace(/\s*[,.;:!?…]+$/, '').toLowerCase();   // compare words without their punctuation
+        const shown = new Set();
+        const hintList = el('div', 'grammar-hints');
+        const pickHint = wrongWords => {
+          const hs = Q.hints || [];
+          const fresh = hs.filter(h => !shown.has(h));
+          return fresh.find(h => h.about.some(a => wrongWords.has(key(a)))) || fresh[0] || null;
+        };
         const check = next('Vérifier · check', () => {
           tries++;
           let all = true;
-          slots.forEach((s, i) => { const b = s.firstChild, ok = b.dataset.w === parts[i].w; b.classList.toggle('right', ok); b.classList.toggle('wrong', !ok); all = all && ok; });
+          const wrongWords = new Set();
+          slots.forEach((s, i) => {
+            const b = s.firstChild, ok = b.dataset.w === parts[i].w;
+            b.classList.toggle('right', ok); b.classList.toggle('wrong', !ok); all = all && ok;
+            if (!ok) { wrongWords.add(key(b.dataset.w)); wrongWords.add(key(parts[i].w)); }
+          });
           if (all) { foot.innerHTML = ''; pool.remove(); hint.hidden = true; return solve(Q, Q.words.join(' ')); }
           hint.hidden = false;
+          const h = pickHint(wrongWords);
+          if (h) {
+            shown.add(h);
+            const p = el('p', 'grammar-hint', `💡 <b>Indice · hint:</b> ${nb(h.t)}`);
+            hintList.append(p);
+            p.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
           refresh();
         }, false);
         const hint = el('p', 'en small', 'Green words are in the right place. Tap a red word to take it back, then try a new spot.');
-        hint.hidden = true; panel.append(hint);
+        hint.hidden = true; panel.append(hint, hintList);
       }
       function solve(Q, right, quiet) {
         solved = true;

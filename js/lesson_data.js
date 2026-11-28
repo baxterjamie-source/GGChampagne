@@ -65,7 +65,12 @@ const LESSONS = [
         { t: 'Au revoir !', why: '« Au revoir » is goodbye: for when you leave, not when your champagne arrives.' },
         { t: 'Je vous en prie.', why: '« Je vous en prie » means you\'re welcome. That\'s HIS line, after your « merci ».' },
       ], answer: 'Merci beaucoup !' },
-      { type: 'order', prompt: 'Two glasses of champagne, please.', en: 'Tap the words in order.', words: ['Deux', 'coupes', 'de', 'champagne,', "s'il", 'vous', 'plaît.'], why: '« Une coupe » is the bar word for a glass of champagne. « S\'il vous plaît » always comes at the end, like "please".' },
+      { type: 'order', prompt: 'Two glasses of champagne, please.', en: 'Tap the words in order.', words: ['Deux', 'coupes', 'de', 'champagne,', "s'il", 'vous', 'plaît.'], why: '« Une coupe » is the bar word for a glass of champagne. « S\'il vous plaît » always comes at the end, like "please".',
+        hints: [
+          { about: ['Deux', 'coupes'], t: 'Numbers go in front of the noun, just as in English: « deux coupes » (two glasses).' },
+          { about: ['de', 'champagne,'], t: '« De » joins the glass to what\'s in it: « une coupe DE champagne », a glass OF champagne.' },
+          { about: ["s'il", 'vous', 'plaît.'], t: '« S\'il vous plaît » is one fixed block, always s\'il · vous · plaît, and it goes at the end, like "please".' },
+        ] },
       { type: 'choice', prompt: 'Someone says « Merci ! » to you. You reply…', options: [
         { t: 'Je vous en prie.', why: 'The polite "you\'re welcome". With friends, « de rien » works too.' },
         { t: "S'il vous plaît.", why: '« S\'il vous plaît » is please: for asking for something. (In Belgium it can also mean "you\'re welcome", but not in France.)' },
@@ -141,14 +146,37 @@ const LESSONS = [
         { t: "L'addition", why: '« L\'addition » is the bill, for the end of the meal.' },
       ], answer: 'La carte' },
       // v1.08: four phrases moved here from the flip cards (the user finds putting words in order the most helpful)
-      { type: 'order', prompt: 'Could you bring us the wine list?', en: 'Tap the words in order.', words: ['Pourriez-vous', 'nous', 'apporter', 'la', 'carte', 'des', 'vins ?'], why: '« Pourriez-vous… ? » (could you…?) is the politest way to ask for anything. « La carte des vins » is the wine list.' },
+      { type: 'order', prompt: 'Could you bring us the wine list?', en: 'Tap the words in order.', words: ['Pourriez-vous', 'nous', 'apporter', 'la', 'carte', 'des', 'vins ?'], why: '« Pourriez-vous… ? » (could you…?) is the politest way to ask for anything. « La carte des vins » is the wine list.',
+        hints: [
+          { about: ['Pourriez-vous'], t: 'A polite question can start with the verb itself: « Pourriez-vous… ? » (Could you…?).' },
+          { about: ['nous', 'apporter'], t: '« Nous » (us) goes BEFORE the verb it belongs to: « nous apporter », bring us. Never « apporter nous ».' },
+          { about: ['la', 'carte', 'des', 'vins ?'], t: 'The thing you want comes last: « la carte des vins », the list OF THE wines (« des » = of the).' },
+        ] },
       { type: 'tap', prompt: 'Touchez le seau à champagne.', en: 'Tap the right thing in the picture.', answer: 'seau', why: 'Le seau à champagne, keeping the rosé cold.' },
-      { type: 'order', prompt: 'What is your favourite dish here?', en: 'Tap the words in order.', words: ['Quel', 'est', 'votre', 'plat', 'préféré', 'ici ?'], why: 'Like the colour in « champagne rosé », « préféré » comes after the noun: « votre plat préféré ».' },
-      { type: 'order', prompt: 'Where are the toilets, please?', en: 'Tap the words in order.', words: ['Où', 'sont', 'les', 'toilettes,', "s'il", 'vous', 'plaît ?'], why: '« Les toilettes » is plural, so it\'s « où SONT », not « où est ».' },
+      { type: 'order', prompt: 'What is your favourite dish here?', en: 'Tap the words in order.', words: ['Quel', 'est', 'votre', 'plat', 'préféré', 'ici ?'], why: 'Like the colour in « champagne rosé », « préféré » comes after the noun: « votre plat préféré ».',
+        hints: [
+          { about: ['Quel', 'est'], t: '« Quel est… ? » (What is…?) opens the question.' },
+          { about: ['votre', 'plat', 'préféré'], t: 'Most describing words come AFTER the noun in French: « plat préféré » (dish favourite). « Votre » (your) stays in front.' },
+          { about: ['ici ?'], t: '« Ici » (here) goes at the very end, as in English.' },
+        ] },
+      { type: 'order', prompt: 'Where are the toilets, please?', en: 'Tap the words in order.', words: ['Où', 'sont', 'les', 'toilettes,', "s'il", 'vous', 'plaît ?'], why: '« Les toilettes » is plural, so it\'s « où SONT », not « où est ».',
+        hints: [
+          { about: ['Où', 'sont'], t: 'The question word first, then the verb: « Où sont… ? » (Where are…?).' },
+          { about: ['les', 'toilettes,'], t: '« Les » (the) sits right in front of its noun: « les toilettes ».' },
+          { about: ["s'il", 'vous', 'plaît ?'], t: '« S\'il vous plaît » is one fixed block, always s\'il · vous · plaît, and it goes at the end.' },
+        ] },
       { type: 'tap', prompt: 'Au fond, à droite. Touchez la porte des toilettes.', en: 'At the back, on the right. Tap the right thing in the picture.', answer: 'porte', why: 'La porte des toilettes: at the back, on the right, just as the waiter said.' },
       { type: 'tap', prompt: 'Touchez la caisse.', en: 'Tap the right thing in the picture.', answer: 'caisse', why: 'La caisse: the till. « On paie à la caisse ou à table ? »' },
-      { type: 'order', prompt: 'Do we pay at the till or at the table?', en: 'Tap the words in order.', words: ['On', 'paie', 'à', 'la', 'caisse', 'ou', 'à', 'table ?'], why: '« On » (one / we) is how the French say "we" in everyday speech. « À table » needs no « la ».' },
-      { type: 'order', prompt: 'What do you recommend?', en: 'Tap the words in order.', words: ["Qu'est-ce", 'que', 'vous', 'nous', 'conseillez ?'], why: '« Qu\'est-ce que » starts a "what" question. « Vous nous conseillez » = you advise us.' },
+      { type: 'order', prompt: 'Do we pay at the till or at the table?', en: 'Tap the words in order.', words: ['On', 'paie', 'à', 'la', 'caisse', 'ou', 'à', 'table ?'], why: '« On » (one / we) is how the French say "we" in everyday speech. « À table » needs no « la ».',
+        hints: [
+          { about: ['On', 'paie'], t: 'Who, then the verb: « On paie » (we pay). A spoken French question can keep the normal order and simply rise in tone at the end.' },
+          { about: ['à', 'la', 'caisse', 'ou', 'table ?'], t: 'Two places joined by « ou » (or): « à la caisse » OU « à table ». Each place gets its own « à ».' },
+        ] },
+      { type: 'order', prompt: 'What do you recommend?', en: 'Tap the words in order.', words: ["Qu'est-ce", 'que', 'vous', 'nous', 'conseillez ?'], why: '« Qu\'est-ce que » starts a "what" question. « Vous nous conseillez » = you advise us.',
+        hints: [
+          { about: ["Qu'est-ce", 'que'], t: '« Qu\'est-ce que » (what) always opens the question, as one block.' },
+          { about: ['vous', 'nous', 'conseillez ?'], t: 'First who is doing it (« vous », you), then who it\'s for (« nous », us), then the verb: « vous nous conseillez », you advise us. « Nous » and « vous » as the object sit BEFORE the verb, not after it as in English.' },
+        ] },
       { type: 'choice', prompt: 'You would like free tap water. You say…', options: [
         { t: "Une carafe d'eau, s'il vous plaît.", why: 'A jug of tap water: free in every French restaurant.' },
         { t: "Une bouteille d'eau, s'il vous plaît.", why: 'That gets you a bottle of mineral water, and it goes on the bill. Fine if you want sparkling (« de l\'eau gazeuse »).' },
@@ -164,7 +192,12 @@ const LESSONS = [
         { t: 'On paie à la caisse ?', why: 'Do we pay at the till? A good question in a café, but he has just offered to take your card at the table.' },
         { t: 'Je vous en prie.', why: 'You\'re welcome: the reply to « merci », not to a question.' },
       ], answer: 'Oui, vous pouvez apporter la machine ?' },
-      { type: 'order', prompt: 'Which rosé champagne do you recommend?', en: 'Tap the words in order.', words: ['Quel', 'champagne', 'rosé', 'nous', 'conseillez-vous ?'], why: 'In French the colour comes after the noun: « champagne rosé », « vin rouge ». « Nous conseillez-vous » = do you advise us.' },
+      { type: 'order', prompt: 'Which rosé champagne do you recommend?', en: 'Tap the words in order.', words: ['Quel', 'champagne', 'rosé', 'nous', 'conseillez-vous ?'], why: 'In French the colour comes after the noun: « champagne rosé », « vin rouge ». « Nous conseillez-vous » = do you advise us.',
+        hints: [
+          { about: ['champagne', 'rosé'], t: 'Colours come AFTER the noun in French: « champagne rosé », « vin rouge », « robe rose ». (Only a few short, common words like « bon », « beau », « petit » go before.)' },
+          { about: ['Quel'], t: '« Quel » (which) goes right in front of the noun it asks about: « Quel champagne… ? »' },
+          { about: ['nous', 'conseillez-vous ?'], t: '« Nous » (us) sits BEFORE the verb: « nous conseillez-vous ? », do you advise us? The « -vous » is joined on with a dash because the question is turned around.' },
+        ] },
     ],
 
     sayIt: [
